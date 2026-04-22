@@ -1,0 +1,55 @@
+---
+description: Metrics computation rules — keep metrics pure and decoupled from plotting
+globs: src/evaluation/**/*.py
+alwaysApply: false
+---
+
+# Evaluation Metrics
+
+Canonical metric spec: `docs/METRICS.md`.
+
+## Hard rules
+
+- **Pure functions** of a per-row results DataFrame (or rows) + metadata.
+  No LLM calls, no file IO, no Streamlit imports.
+- **No plotting here.** Metrics return numbers / DataFrames / numpy arrays.
+  All charting is in `src/dashboard/charts.py`.
+- **Never mutate inputs.** Return new DataFrames.
+- **Always compute per pillar AND per-slice.** `evaluation.slices` provides
+  the grouping helpers (`by_category`, `by_reviewer`, `by_intent`).
+- **Handle missing labels** gracefully — metrics that require human labels
+  return `None` or an explicit "insufficient_labels" marker when
+  `label_<pillar>` is absent, not an exception.
+
+## Required per-pillar metrics
+
+- `exact_match_rate`
+- `within_1_rate`
+- `off_by_2_rate`
+- `off_by_3_plus_rate`
+- `mean_absolute_error`
+- `weighted_kappa` (quadratic weights)
+- `spearman_correlation`
+- `score_distribution` (counts per 1–5 score)
+- `confusion_matrix` (5×5)
+- `severity_aware_alignment` — weighted score using the distance mapping in
+  `docs/METRICS.md` (distance 0→1.00, 1→0.75, 2→0.40, 3→0.10, 4→0.00).
+  Mean over rows that have a human label.
+
+## Required run-level metrics
+
+`total_rows`, `rows_successfully_scored`, `rows_failed_parsing`,
+`avg_latency_ms` per judge, `tokens_in` / `tokens_out` per judge,
+`cost_estimate` per judge.
+
+## Slicing
+
+- `evaluation.slices.by_category` — per-category breakdown of all per-pillar
+  metrics. Always available (category is required).
+- `evaluation.slices.by_reviewer` — per-reviewer breakdown when
+  `reviewer_*` columns exist. See `reviewer_analytics.md`.
+
+## Tests
+
+Every metric must have a unit test with a small golden fixture — especially
+kappa, spearman, severity-aware alignment, and confusion matrix edges.
