@@ -1,0 +1,61 @@
+---
+description: Normalized dataset schema — enforce on all ingestion and judge I/O
+globs: src/{ingestion,core,judges,orchestration,evaluation}/**/*.py
+alwaysApply: false
+---
+
+# Normalized Dataset Schema
+
+Source files vary. After column mapping, every row must conform to the
+normalized schema defined in `src/core/types.py` (`NormalizedRow`). Judges,
+metrics, dashboards, and exports operate on normalized rows only.
+
+Canonical spec: `dataset_contract.md` at repo root.
+
+## Required columns (block eval if missing)
+
+- `record_id` — unique string per row.
+- `user_input` — raw user utterance / current-turn question.
+- `agent_output` — chatbot answer to evaluate.
+- `category` — first-class slice for filtering & dashboards.
+
+## Strongly recommended
+
+- `retrieved_context` — parsed to `list[str]` (tolerate JSON / list / string).
+- `chat_history` — parsed to `list[Turn]`.
+- `metadata` — parsed to `dict[str, Any]`.
+
+## Optional per-pillar labels and rationales
+
+`label_<pillar>` (ordinal 1–5) and `rationale_<pillar>` (free text) for each
+pillar.
+
+## Optional reviewer
+
+`reviewer_name`, `reviewer_id`.
+
+## Optional other
+
+`intent`, `topic`, `model_name`, `conversation_id`, `turn_index`,
+`ground_truth_answer`, `policy_reference`.
+
+## Parsing rules (in `ingestion/normalizer.py`)
+
+- JSON-like strings parsed via `json.loads` → `ast.literal_eval` fallback →
+  `None` with a row warning flag.
+- Normalize empty-ish values (`""`, `"null"`, `"NaN"`, `"None"`) to `None`.
+- Preserve **all original source columns** in `row.source_extras`.
+- Derive flags on every row: `has_reviewer`, `has_context`, `has_labels`,
+  `has_history`, `has_ground_truth`.
+
+## Ingestion supported formats
+
+CSV, XLSX, JSON, Parquet.
+
+## Enforcement
+
+- `ingestion/validators.py` raises `SchemaValidationError` with a per-column
+  report. UI blocks eval until required columns resolve.
+- Do not silently coerce types. Fail loudly, surface a preview table, let
+  the user fix mapping.
+- Mapping presets persist under `configs/mappings/<name>.yaml`.
