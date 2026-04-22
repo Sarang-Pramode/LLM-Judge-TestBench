@@ -1,0 +1,52 @@
+---
+description: Config file conventions (YAML/JSON) for judges, models, runs, mappings
+globs: configs/**/*.{yaml,yml,json}
+alwaysApply: false
+---
+
+# Config Conventions
+
+All judges, model aliases, column mappings, and run defaults are driven by
+versioned config files under `configs/`.
+
+## Layout
+
+```
+configs/
+  models.yaml              # model aliases → concrete vendor/model ids
+  judges/
+    <pillar>.yaml          # per-pillar judge config
+  mappings/
+    <preset-name>.yaml     # saved column mappings
+  runs/
+    defaults.yaml          # default run settings
+  knowledge/
+    completeness.yaml      # or JSON; versioned KB (or pointer to a data file)
+```
+
+## Required fields per judge config
+
+```yaml
+name: factual_accuracy
+rubric_version: "1.2.0"
+prompt_version: "2.0.0"
+required_fields: [user_input, agent_output]          # beyond the global required
+optional_fields: [retrieved_context, ground_truth_answer]
+output_schema: factual_accuracy.FactualAccuracyResult # dotted path
+model_alias: judge-default
+temperature: 0.0
+max_tokens: 800
+retry:
+  max_attempts: 3
+  backoff_base_s: 1.0
+  backoff_max_s: 20.0
+```
+
+## Rules
+
+- **Never** put secrets in configs. API keys via env only.
+- Bump `rubric_version` / `prompt_version` on any substantive change. These
+  are logged to MLflow and Langfuse for reproducibility.
+- Configs are loaded via Pydantic models in `src/schemas/config.py` — invalid
+  configs fail fast at app start.
+- Keep configs small and composable; prefer one file per concern.
