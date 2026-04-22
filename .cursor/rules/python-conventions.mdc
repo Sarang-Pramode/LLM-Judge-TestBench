@@ -1,0 +1,53 @@
+---
+description: Python coding conventions for this project
+globs: **/*.py
+alwaysApply: false
+---
+
+# Python Conventions
+
+## Versions & tooling
+
+- Python 3.11+.
+- Use `pydantic` v2 for all structured data (normalized rows, judge I/O, configs).
+- Use `ruff` for lint, `black` for format, `mypy` (strict on `src/`) for types.
+- Prefer `uv` or `pip-tools` for pinned deps; commit a lockfile.
+
+## Style
+
+- Full type hints on every public function. Return types required.
+- Small, pure functions. Side effects isolated in `llm/`, `observability/`,
+  `ingestion/` IO helpers.
+- Module-level docstring explaining responsibility + invariants.
+- No bare `except:`. Catch specific exceptions; log with context; re-raise or
+  convert to a domain error.
+
+```python
+# BAD
+try:
+    result = client.call(prompt)
+except:
+    pass
+
+# GOOD
+try:
+    result = client.call(prompt)
+except ProviderTimeoutError as e:
+    logger.warning("judge.timeout", extra={"judge": name, "record_id": rid})
+    raise JudgeExecutionError("timeout during judge call") from e
+```
+
+## Pydantic patterns
+
+- Use `BaseModel` with `model_config = ConfigDict(extra="forbid", frozen=True)`
+  for judge outputs and config objects.
+- Validate enums/ordinal scales explicitly (`Literal[1,2,3,4,5]`).
+
+## Logging
+
+- Use `structlog` or stdlib `logging` with structured extras, never f-string
+  logs for data payloads. Include `record_id`, `judge`, `run_id`.
+
+## Comments
+
+Only explain non-obvious intent. No narrating comments.
