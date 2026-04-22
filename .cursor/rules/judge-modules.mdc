@@ -1,0 +1,66 @@
+---
+description: Structure and contract for judge pillar modules
+globs: src/judges/**/*.py
+alwaysApply: false
+---
+
+# Judge Module Contract
+
+Each pillar is a single file under `src/judges/<pillar>.py` (one class per
+pillar). Shared machinery lives in `src/judges/base.py`,
+`src/judges/registry.py`, `src/judges/prompt_builder.py`,
+`src/judges/output_parser.py`.
+
+## Hard rules
+
+- **No vendor SDK imports.** Use `llm.base.LLMClient` (via `llm.factory`).
+- **No Streamlit imports.**
+- **No global state.** All inputs come via arguments or `RunContext`.
+- **Judges must not mutate source data.** `NormalizedRow` is effectively frozen.
+- Prompt construction is a **pure function** of `(row, rubric, config, kb_match?)`.
+- Each judge must be registered in `src/judges/registry.py` so adding a
+  pillar does not require changes to `orchestration/` or `app/`.
+- Config (model alias, temperature, max tokens, retry policy, prompt version,
+  rubric version) comes from `configs/judges/<pillar>.yaml` and
+  `configs/rubrics/<pillar>.yaml` — never hardcoded.
+
+## Required contract
+
+```python
+class BaseJudge(Protocol):
+    pillar: str                  # e.g. "factual_accuracy"
+    rubric_version: str
+    prompt_version: str
+
+    def score(
+        self,
+        row: NormalizedRow,
+        *,
+        run_ctx: RunContext,
+    ) -> JudgeResult: ...
+```
+
+`JudgeResult` is the strict structured output defined in
+`docs/JUDGE_OUTPUT_CONTRACT.md`. It MUST include, at minimum:
+
+- `pillar`, `score` (1–5), `confidence` (0–1)
+- `decision_summary`, `rationale` / `evidence_for_score`
+- `failure_tags`
+- `why_not_higher`, `why_not_lower`
+- `rubric_anchor`
+- `raw_model_name`, `prompt_version`, `rubric_version`
+
+## Completeness judge extra
+
+- Must accept the completeness KB and call `completeness.kb_matcher` + 
+  `completeness.task_profile_builder` before scoring.
+- If match is weak or absent: return lower `confidence`, add failure tag
+  `kb_miss`, note fallback mode in `decision_summary`.
+- Populate `required_elements_present` and `required_elements_missing`.
+
+## Output parsing
+
+- All judges return JSON via `LLMClient.generate_structured(schema=...)`.
+- `judges.output_parser` handles final validation + one repair attempt.
+- On final failure: raise `JudgeOutputParseError` — orchestration tags the
+  row `parse_failed` and records the raw response.
