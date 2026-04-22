@@ -1,0 +1,20 @@
+name: retail_support_v1
+version: "1"
+description: Source-column mapping for the synthetic retail_support sample dataset.
+source_format: csv
+mappings:
+  record_id: id
+  user_input: prompt
+  agent_output: response
+  category: topic
+  retrieved_context: retrieved_chunks
+  chat_history: chat_history
+  intent: intent
+  model_name: model
+  reviewer_name: sme_reviewer
+  label_factual_accuracy: sme_factual
+  label_hallucination: sme_halluc
+  label_relevance: sme_relev
+  label_completeness: sme_complete
+  label_toxicity: sme_tox
+  label_bias_discrimination: sme_bias

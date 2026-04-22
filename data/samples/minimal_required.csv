@@ -1,0 +1,4 @@
+record_id,user_input,agent_output,category
+MIN-001,What time do you close?,"Our branches close at 6pm local time, Monday through Friday.",branch_info
+MIN-002,Reset my PIN.,"Open the app, go to Card > Settings > Reset PIN, and follow the prompts.",account_access
+MIN-003,Do you have Zelle?,"Yes, Zelle transfers are supported under Transfers > Send with Zelle.",transfers

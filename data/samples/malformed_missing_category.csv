@@ -1,0 +1,3 @@
+record_id,user_input,agent_output
+BAD-001,Is my card active?,"Yes, your card is active."
+BAD-002,What is my balance?,I cannot access balances here.

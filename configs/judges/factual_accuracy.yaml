@@ -1,0 +1,31 @@
+# Reference judge config for the factual_accuracy pillar.
+#
+# Separate from the rubric so runtime tweaks (model choice, retries,
+# timeout) do not require SME review. Cross-file invariants
+# (pillar+version match) are enforced by JudgeBundle at load time.
+pillar: factual_accuracy
+prompt_version: "factual_accuracy.v1"
+
+# Rubric path is interpreted relative to this file's directory (or an
+# explicit rubric_root handed to load_judge_bundle).
+rubric_path: "../rubrics/factual_accuracy.yaml"
+rubric_version: "v1.0"
+
+# Model routing goes through src/llm/factory.py. Change the alias here
+# to swap Gemini Pro in for harder pillars, or "mock" for offline runs.
+model_alias: judge-default
+
+temperature: 0.0
+max_output_tokens: 1024
+timeout_s: 60.0
+
+retry:
+  max_attempts: 3
+  initial_backoff_s: 0.5
+  max_backoff_s: 8.0
+  backoff_multiplier: 2.0
+  jitter_s: 0.25
+
+notes: >
+  V1 factual_accuracy judge. Update prompt_version on every meaningful
+  prompt change so run metadata stays traceable.

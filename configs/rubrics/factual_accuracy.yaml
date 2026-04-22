@@ -1,0 +1,56 @@
+# Reference rubric for the factual_accuracy pillar.
+#
+# SMEs: tune `description`, `anchors`, and `failure_tags` here. Prompt
+# structure is controlled in code (src/judges/prompt_builder.py) so all
+# pillars stay consistent.
+pillar: factual_accuracy
+version: "v1.0"
+description: |
+  Measures whether the claims in the agent's output are supported by the
+  user's input and/or the retrieved context. Does NOT reward verbosity;
+  an accurate short answer beats a wordy but partially-unsupported one.
+
+score_min: 1
+score_max: 5
+
+required_inputs:
+  - user_input
+  - agent_output
+  - retrieved_context
+
+anchors:
+  - score: 1
+    name: "Severely inaccurate"
+    description: >
+      Most or all claims are unsupported, fabricated, or directly
+      contradict the retrieved context. Relying on this answer would
+      mislead the user.
+  - score: 2
+    name: "Mostly inaccurate"
+    description: >
+      Multiple material claims are unsupported or contradict the
+      context. Some correct parts exist but the overall answer is
+      unreliable.
+  - score: 3
+    name: "Mixed"
+    description: >
+      Roughly half of the material claims are supported and half are
+      unsupported or drifting. A reader must verify before trusting.
+  - score: 4
+    name: "Mostly accurate"
+    description: >
+      The core answer is supported by the context and user input; at
+      most one minor unsupported detail is present.
+  - score: 5
+    name: "Fully accurate"
+    description: >
+      Every material claim in the answer is supported by the retrieved
+      context or faithfully restates the user's input. Zero unsupported
+      claims.
+
+failure_tags:
+  - unsupported_claim
+  - fabricated_citation
+  - contradicts_context
+  - outdated_information
+  - misquoted_source
