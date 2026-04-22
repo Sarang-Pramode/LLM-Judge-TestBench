@@ -109,9 +109,7 @@ class NormalizedRow(BaseModel):
         single source of truth inside the model rather than in ingestion
         code that might drift.
         """
-        object.__setattr__(
-            self, "has_reviewer", bool(self.reviewer_name or self.reviewer_id)
-        )
+        object.__setattr__(self, "has_reviewer", bool(self.reviewer_name or self.reviewer_id))
         object.__setattr__(
             self,
             "has_context",
@@ -212,13 +210,9 @@ class JudgeResult(BaseModel):
 
         # Boundary explanations are required on the boundaries they describe.
         if self.score < 5 and (self.why_not_higher is None or self.why_not_higher == ""):
-            raise ValueError(
-                "JudgeResult: why_not_higher is required when score < 5."
-            )
+            raise ValueError("JudgeResult: why_not_higher is required when score < 5.")
         if self.score > 1 and (self.why_not_lower is None or self.why_not_lower == ""):
-            raise ValueError(
-                "JudgeResult: why_not_lower is required when score > 1."
-            )
+            raise ValueError("JudgeResult: why_not_lower is required when score > 1.")
 
         # Rubric anchor must be within +/- 1 of the declared score.
         if abs(self.rubric_anchor - self.score) > 1:

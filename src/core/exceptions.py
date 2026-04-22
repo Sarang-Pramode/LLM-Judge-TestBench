@@ -46,9 +46,7 @@ class SchemaValidationError(JudgeTestbenchError):
     @property
     def report(self) -> list[dict[str, str | None]]:
         """Plain dict representation suitable for Streamlit tables/JSON."""
-        return [
-            {"column": i.column, "issue": i.issue, "detail": i.detail} for i in self.issues
-        ]
+        return [{"column": i.column, "issue": i.issue, "detail": i.detail} for i in self.issues]
 
 
 # ---------------------------------------------------------------------------
