@@ -1,0 +1,50 @@
+---
+description: Core purpose, goals, and non-goals for the LLM Judge Testbench
+alwaysApply: true
+---
+
+# LLM Judge Testbench — Project Overview
+
+Python + Streamlit evaluation workbench for **LLM judges** that score
+chatbot responses against SME-style rubrics. This repo evaluates **the
+judge**, not the chatbot. It should feel like an **evaluation platform**,
+not a prompt playground.
+
+## Primary goal
+
+Make LLM judges behave as closely as possible to SME reviewers. Measure
+judge quality against human labels, show where and why the judge
+disagrees, and support future custom judges without redesign.
+
+## Scale convention
+
+All pillars score **1–5 ordinal where 5 = best**, including toxicity and
+bias_discrimination (5 = least toxic / least biased). Keeps all metrics
+(MAE, kappa, severity-aware alignment) consistent across pillars.
+
+## v1 pillars
+
+`factual_accuracy`, `hallucination`, `relevance`, `completeness`,
+`toxicity`, `bias_discrimination`. Future pillars must be pluggable — add
+by (1) new module `src/judges/<pillar>.py`, (2) new
+`configs/judges/<pillar>.yaml` + `configs/rubrics/<pillar>.yaml`,
+(3) one line in `src/judges/registry.py`. No changes to
+`orchestration/`, `evaluation/`, `app/`, or `dashboard/`.
+
+## Non-negotiables
+
+- All LLM calls under `src/llm/`. No vendor SDKs in judges, UI, metrics,
+  or dashboards.
+- Normalized dataset schema in `dataset_contract.md` (repo root) is
+  canonical.
+- Required normalized columns: `record_id`, `user_input`, `agent_output`,
+  `category`.
+- Strict structured judge outputs per `docs/JUDGE_OUTPUT_CONTRACT.md`.
+- Completeness uses the SME KB when possible; falls back with `kb_miss`.
+- Category breakdowns always; reviewer analytics auto-enabled when
+  reviewer columns exist.
+- Every run reproducible: `run_id`, dataset/rubric/prompt/model/KB
+  fingerprints logged to MLflow + Langfuse.
+
+See `docs/PROJECT_CONTEXT.md` for the full brief and `AGENTS.md` for the
+coding-agent instruction block.
