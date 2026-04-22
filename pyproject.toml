@@ -22,6 +22,13 @@ dependencies = [
     "pydantic-settings>=2.4,<3",
     "streamlit>=1.38,<2",
     "python-dotenv>=1.0,<2",
+    "pandas>=2.2,<3",
+    "openpyxl>=3.1,<4",
+    "pyarrow>=16,<22",
+    "pyyaml>=6.0,<7",
+    "langchain-core>=0.3,<1",
+    "langchain-google-genai>=2.0,<3",
+    "tenacity>=8,<10",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +38,8 @@ dev = [
     "ruff>=0.6,<1",
     "black>=24,<25",
     "mypy>=1.11,<2",
+    "pandas-stubs>=2.2,<3",
+    "types-PyYAML>=6.0,<7",
 ]
 
 [project.scripts]
@@ -92,6 +101,21 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["streamlit", "streamlit.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "langchain_google_genai",
+    "langchain_google_genai.*",
+    "google.api_core",
+    "google.api_core.*",
+    "tenacity",
+    "tenacity.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
