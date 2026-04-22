@@ -1,0 +1,41 @@
+---
+description: Streamlit UI conventions
+globs: src/{app,dashboard}/**/*.py
+alwaysApply: false
+---
+
+# Streamlit UI Conventions
+
+## Layout
+
+- Entry point: `src/app/streamlit_app.py`. Wiring only; no business logic.
+- Pages live in `src/app/pages/` using Streamlit's numbered-prefix convention:
+  `01_upload.py`, `02_configure.py`, `03_run_eval.py`, `04_dashboard.py`,
+  `05_disagreements.py`, `06_compare_runs.py`.
+- Reusable plotting / tables / filters in `src/dashboard/`:
+  `charts.py`, `tables.py`, `filters.py`. **All plots MUST come from
+  `dashboard/charts.py`** — no inline plotting inside pages.
+
+## Hard rules
+
+- **No vendor LLM SDK imports** in `app/` or `dashboard/`. Call
+  `orchestration/` and `evaluation/` only.
+- **No judge logic here.** Use registered judges via the orchestration runner.
+- **Block runs if required normalized columns are missing.** Surface the
+  `SchemaValidationError` report clearly.
+- **Always show category breakdowns** on the dashboard (category is required).
+- **If reviewer metadata is present, auto-enable reviewer analytics**
+  (see `reviewer_analytics.md`).
+- **Allow export** of normalized dataset + judge outputs via `src/exports/`.
+- Long operations use `st.status` / `st.progress` and run through the
+  orchestration runner (thread or asyncio). The UI never calls a judge
+  directly.
+- Cache with `@st.cache_data` (data) and `@st.cache_resource` (clients).
+  Never cache LLM responses at the UI layer — that belongs in
+  `orchestration/caching.py` if enabled.
+
+## State
+
+- Namespace `session_state` keys (`upload.mapping`, `run.config`,
+  `run.last_run_id`, etc.). Document them in `src/app/state.py` (or a
+  module-level dict in `streamlit_app.py`).
