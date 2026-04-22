@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+sdist/
+wheels/
+share/python-wheels/
+MANIFEST
+.installed.cfg
+
+# Virtualenvs
+.venv/
+venv/
+env/
+ENV/
+.python-version.local
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.cache
+.tox/
+.nox/
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# IDEs / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Project data
+# Real evaluation datasets stay local; commit samples only.
+data/*
+!data/samples/
+!data/samples/**
+
+# Output / artifacts
+outputs/
+artifacts/
+logs/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
