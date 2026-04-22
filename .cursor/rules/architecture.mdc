@@ -1,0 +1,55 @@
+---
+description: Architectural principles and module boundaries
+alwaysApply: true
+---
+
+# Architecture Principles
+
+## Module boundaries (enforce strictly)
+
+```
+src/
+  app/          # Streamlit entry + pages. Wiring only. No LLM calls.
+  core/         # Types, settings, constants, exceptions. No deps on llm/judges.
+  ingestion/    # Load, map, validate, normalize. Single source of truth for
+                # source schemas.
+  llm/          # Provider layer. ONLY place vendor SDKs live.
+  judges/       # One module per pillar. No provider SDK imports, no Streamlit.
+  rubrics/      # Rubric loader + models. Versioned.
+  completeness/ # Completeness KB loader, matcher, task profile builder.
+  evaluation/   # Metrics, agreement, slices, stability, reviewer analysis.
+  orchestration/# Run a judge across a dataset. Concurrency, batching, caching.
+  observability/# MLflow + Langfuse + run metadata fingerprints.
+  dashboard/    # Reusable charts, tables, filters. Read-only on results.
+  exports/      # Writers and reports.
+configs/        # models / judges / rubrics / mappings / runs / knowledge.
+tests/          # unit, integration, fixtures.
+```
+
+## Non-negotiable rules
+
+1. **LLM provider isolation.** Vendor SDKs (`openai`, `anthropic`,
+   `google-*`) import ONLY in `src/llm/*_client.py`. Judges, UI, metrics,
+   and dashboards call the `LLMClient` interface.
+2. **Config-driven judges and rubrics.** Rubric version, prompt version,
+   model alias, temperature, retry policy come from `configs/judges/<pillar>.yaml`
+   and `configs/rubrics/<pillar>.yaml`. No magic constants in code.
+3. **Normalized schema.** Downstream code operates on `NormalizedRow`
+   (`src/core/types.py`). Ingestion is the only place that knows source schemas.
+4. **Strict structured outputs.** Every judge returns a Pydantic-validated
+   `JudgeResult` (see `docs/JUDGE_OUTPUT_CONTRACT.md`). Parse failures retry
+   then tag `parse_failed`, never silently drop.
+5. **Reproducibility.** Every run records: `run_id`, `dataset_fingerprint`,
+   `rubric_version`, `prompt_version`, `model_alias`/`model_version`,
+   `kb_version`, `run_config_hash`.
+6. **No cross-imports from `app/` or `dashboard/` into `llm/` or judge
+   internals.** They go through `orchestration/` and `evaluation/`.
+
+## Dependency direction
+
+`app → orchestration → {judges, evaluation, ingestion, exports}
+                        ↓         ↓         ↓         ↓
+                     core ← llm, rubrics, completeness, observability
+dashboard → evaluation, core`
+
+Never import upward.
