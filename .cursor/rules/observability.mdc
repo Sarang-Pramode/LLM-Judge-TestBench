@@ -1,0 +1,46 @@
+---
+description: Observability — MLflow for experiments, Langfuse for traces
+globs: src/{observability,orchestration,llm,judges,evaluation}/**/*.py
+alwaysApply: false
+---
+
+# Observability
+
+Two complementary tools. Use both.
+
+## MLflow — experiments & aggregate metrics
+
+One **run** per evaluation execution (dataset × judge set × model config).
+
+- Log params (via `observability.run_metadata`): `run_id`,
+  `dataset_fingerprint`, `rubric_version_<pillar>`, `prompt_version_<pillar>`,
+  `model_alias`, `model_version`, `kb_version`, `run_config_hash`.
+- Log per-pillar metrics (see `docs/METRICS.md`): `exact_match_rate`,
+  `within_1_rate`, `off_by_2_rate`, `off_by_3_plus_rate`,
+  `mean_absolute_error`, `weighted_kappa`, `spearman_correlation`,
+  `severity_aware_alignment`.
+- Log run-level metrics: `total_rows`, `rows_successfully_scored`,
+  `rows_failed_parsing`, `avg_latency_ms_<pillar>`, `tokens_in_<pillar>`,
+  `tokens_out_<pillar>`, `cost_estimate_<pillar>`.
+- Log artifacts: resolved configs, per-row results parquet,
+  confusion matrices, score distributions, failure-tag distributions.
+
+## Langfuse — per-row traces
+
+- One **trace** per `(record_id, run_id)`.
+- One **span** per judge call with input prompt, raw + parsed output,
+  tokens, latency, cost, model fingerprint, `prompt_version`,
+  `rubric_version`.
+- Link MLflow `run_id` in trace metadata; link Langfuse trace URL from the
+  per-row results table in the dashboard.
+
+## Hard rules
+
+- API keys from env only. Never from configs or code.
+- PII redaction via `observability.redaction` when
+  `observability.redact_pii: true` in config.
+- **Observability failures MUST NOT break a run.** Wrap writes in try/except,
+  log a single warning per failure type, keep processing rows.
+- Runners (`orchestration/runner.py`) own MLflow run lifecycle and Langfuse
+  trace creation. Judges receive the span handle via `RunContext` and only
+  add attributes — they never create traces themselves.
