@@ -15,6 +15,9 @@ import pytest
 
 from src.core.settings import AppSettings, get_settings
 from src.core.types import Evidence, JudgeResult, NormalizedRow, RunContext
+from src.judges.config import JudgeConfig
+from src.judges.registry import reset_registry
+from src.rubrics.models import Rubric, ScoreAnchor
 
 
 @pytest.fixture
@@ -110,3 +113,49 @@ def fresh_settings(
     monkeypatch.setenv("JTB_CONFIGS_DIR", str(tmp_path / "configs"))
     monkeypatch.setenv("JTB_DATA_DIR", str(tmp_path / "data"))
     return AppSettings()
+
+
+# ---------------------------------------------------------------------------
+# Stage 4: rubric / judge-config fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def factual_accuracy_rubric() -> Rubric:
+    """A minimal but complete ``Rubric`` covering the full 1-5 scale."""
+    return Rubric(
+        pillar="factual_accuracy",
+        version="v1.0",
+        description="Whether agent claims are supported by the retrieved context.",
+        required_inputs=["user_input", "agent_output", "retrieved_context"],
+        anchors=[
+            ScoreAnchor(score=1, name="Severely inaccurate", description="Fabricates."),
+            ScoreAnchor(score=2, name="Mostly inaccurate", description="Many errors."),
+            ScoreAnchor(score=3, name="Mixed", description="About half correct."),
+            ScoreAnchor(score=4, name="Mostly accurate", description="One small miss."),
+            ScoreAnchor(score=5, name="Fully accurate", description="All supported."),
+        ],
+        failure_tags=["unsupported_claim", "fabricated_citation", "contradicts_context"],
+    )
+
+
+@pytest.fixture
+def factual_accuracy_config() -> JudgeConfig:
+    return JudgeConfig(
+        pillar="factual_accuracy",
+        prompt_version="factual_accuracy.v1",
+        rubric_path="rubrics/factual_accuracy.yaml",
+        rubric_version="v1.0",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _reset_judge_registry() -> Iterator[None]:
+    """Stage 4+ tests commonly register fake judges; keep the registry
+    isolated between tests so accidental global state does not leak.
+    """
+    reset_registry()
+    try:
+        yield
+    finally:
+        reset_registry()

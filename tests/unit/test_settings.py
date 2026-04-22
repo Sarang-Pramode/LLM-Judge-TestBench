@@ -40,7 +40,7 @@ def _isolate_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_defaults_with_no_env(clean_settings_cache: None, tmp_path: Path) -> None:
     # Point to a nonexistent .env so pydantic-settings does not pick up any
     # real file sitting next to the repo during development.
-    settings = AppSettings(_env_file=tmp_path / "missing.env")  # type: ignore[call-arg]
+    settings = AppSettings(_env_file=tmp_path / "missing.env")
     assert settings.default_model_alias == "judge-default"
     assert settings.redact_pii is False
     assert settings.log_level == "INFO"
@@ -64,7 +64,7 @@ def test_reads_env_vars(
     monkeypatch.setenv("JTB_OPENAI_API_KEY", "sk-test-xyz")
     monkeypatch.setenv("JTB_CONFIGS_DIR", str(tmp_path / "cfg"))
 
-    settings = AppSettings(_env_file=tmp_path / "missing.env")  # type: ignore[call-arg]
+    settings = AppSettings(_env_file=tmp_path / "missing.env")
     assert settings.default_model_alias == "gpt-4o-mini"
     assert settings.redact_pii is True
     assert settings.log_level == "DEBUG"
@@ -83,7 +83,7 @@ def test_reads_dotenv_file(
         "JTB_MLFLOW_TRACKING_URI=http://localhost:5000\n"
         "JTB_LANGFUSE_HOST=https://cloud.langfuse.com\n"
     )
-    settings = AppSettings(_env_file=env_path)  # type: ignore[call-arg]
+    settings = AppSettings(_env_file=env_path)
     assert settings.default_model_alias == "claude-haiku"
     assert settings.mlflow_tracking_uri == "http://localhost:5000"
     assert settings.langfuse_host == "https://cloud.langfuse.com"
@@ -95,7 +95,7 @@ def test_secrets_do_not_leak_in_repr(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("JTB_OPENAI_API_KEY", "sk-super-secret-123")
-    settings = AppSettings(_env_file=tmp_path / "missing.env")  # type: ignore[call-arg]
+    settings = AppSettings(_env_file=tmp_path / "missing.env")
     rendered = repr(settings)
     assert "sk-super-secret-123" not in rendered
     # Pydantic's SecretStr prints as ** or similar; accept any redaction.
@@ -109,7 +109,7 @@ def test_rejects_invalid_log_level(
 ) -> None:
     monkeypatch.setenv("JTB_LOG_LEVEL", "VERBOSE")
     with pytest.raises(Exception):  # pydantic ValidationError
-        AppSettings(_env_file=tmp_path / "missing.env")  # type: ignore[call-arg]
+        AppSettings(_env_file=tmp_path / "missing.env")
 
 
 def test_get_settings_is_cached(clean_settings_cache: None) -> None:
@@ -132,5 +132,5 @@ def test_extra_env_vars_ignored(
 ) -> None:
     # Foreign JTB_* variable must not blow up model construction.
     monkeypatch.setenv("JTB_SOME_FUTURE_SETTING", "hello")
-    settings = AppSettings(_env_file=tmp_path / "missing.env")  # type: ignore[call-arg]
+    settings = AppSettings(_env_file=tmp_path / "missing.env")
     assert settings.default_model_alias == "judge-default"
