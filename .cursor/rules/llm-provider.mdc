@@ -1,0 +1,55 @@
+---
+description: LLM provider layer rules — the only place vendor SDKs live
+globs: src/llm/**/*.py
+alwaysApply: false
+---
+
+# LLM Provider Layer
+
+All code that talks to a model vendor lives here. Nothing else in the repo
+imports vendor SDKs.
+
+## Required surface
+
+```python
+class LLMClient(Protocol):
+    def generate_structured(
+        self,
+        *,
+        prompt: str,
+        schema: type[BaseModel],
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        timeout_s: float = 30.0,
+        metadata: dict[str, Any] | None = None,
+    ) -> StructuredResponse: ...
+
+    def generate_text(self, *, prompt: str, model: str, ...) -> TextResponse: ...
+```
+
+`StructuredResponse` carries: parsed Pydantic object, raw text, token usage,
+cost estimate, latency, model fingerprint, provider name.
+
+## Responsibilities owned here
+
+- Model selection & aliasing (map `"judge-default"` → concrete model id).
+- Request formatting per vendor.
+- Retries with exponential backoff + jitter.
+- Timeout handling.
+- Concurrency control (semaphore / worker pool).
+- JSON / schema enforcement helpers (tool-calling, response_format, or
+  manual JSON-repair fallback).
+- Raw response logging (to disk and Langfuse).
+- Token and cost accounting.
+
+## Hard rules
+
+- Provider-specific code lives in `src/llm/providers/<vendor>.py`. A dispatcher
+  in `src/llm/client.py` picks the provider based on config.
+- **Never** leak vendor-specific exceptions upward. Translate to
+  `ProviderError`, `ProviderTimeoutError`, `ProviderRateLimitError`,
+  `SchemaValidationError`.
+- API keys come from env vars only; never read from code or committed configs.
+- Every call emits a Langfuse span with `record_id`, `judge`, `run_id`,
+  `prompt_version`, `rubric_version`.
