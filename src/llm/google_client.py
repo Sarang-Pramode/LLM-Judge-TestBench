@@ -240,8 +240,7 @@ def _extract_parsed[ParsedT: BaseModel](response: Any, schema: type[ParsedT]) ->
         parsing_error = response.get("parsing_error")
         if parsing_error is not None:
             raise ProviderError(
-                f"Gemini structured output failed to parse as {schema.__name__}: "
-                f"{parsing_error}"
+                f"Gemini structured output failed to parse as {schema.__name__}: {parsing_error}"
             )
         if parsed is None:
             raise ProviderError(

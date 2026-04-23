@@ -14,6 +14,7 @@ assert on what prompts were sent and how many attempts happened.
 
 from __future__ import annotations
 
+import threading
 from collections import deque
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -84,68 +85,87 @@ class MockLLMClient(LLMClient):
         self._structured_fn = structured_fn
         self._usage = usage if usage is not None else LLMUsage()
         self.calls: list[MockCall] = []
+        # Guards the script queues and the call log. Stage 7's runner
+        # drives judges from multiple threads, so two concurrent calls
+        # against the same mock must not race on ``popleft()`` or on
+        # ``calls.append()``.
+        self._lock = threading.Lock()
 
     # ---- Script management helpers -------------------------------------
 
     def queue_text(self, *items: str | Exception) -> None:
         """Append items to the text-response queue."""
-        self._text_queue.extend(items)
+        with self._lock:
+            self._text_queue.extend(items)
 
     def queue_structured(self, *items: BaseModel | dict[str, Any] | Exception) -> None:
         """Append items to the structured-response queue."""
-        self._structured_queue.extend(items)
+        with self._lock:
+            self._structured_queue.extend(items)
 
     def reset(self) -> None:
         """Forget recorded calls without changing queued scripts."""
-        self.calls.clear()
+        with self._lock:
+            self.calls.clear()
 
     @property
     def text_script_remaining(self) -> int:
-        return len(self._text_queue)
+        with self._lock:
+            return len(self._text_queue)
 
     @property
     def structured_script_remaining(self) -> int:
-        return len(self._structured_queue)
+        with self._lock:
+            return len(self._structured_queue)
 
     # ---- LLMClient hooks -----------------------------------------------
 
     def _invoke_text(self, request: LLMRequest) -> tuple[str, LLMUsage, Any]:
-        self.calls.append(MockCall(kind="text", request=request))
+        # Record the call under the lock so concurrent invocations don't
+        # interleave entries in ``calls``. ``text_fn`` runs *outside* the
+        # lock so a test-supplied function that blocks (e.g. to simulate
+        # latency) can't deadlock other workers.
+        with self._lock:
+            self.calls.append(MockCall(kind="text", request=request))
+            if self._text_fn is None:
+                if not self._text_queue:
+                    raise ProviderError(
+                        f"MockLLMClient[{self.model_name}] has no scripted text responses "
+                        "left; queue another response or supply text_fn."
+                    )
+                item: str | Exception = self._text_queue.popleft()
+                if isinstance(item, Exception):
+                    raise item
+                return item, self._usage, {"mock": True, "source": "script"}
 
-        if self._text_fn is not None:
-            out = self._text_fn(request)
-            return out, self._usage, {"mock": True, "source": "fn"}
-
-        if not self._text_queue:
-            raise ProviderError(
-                f"MockLLMClient[{self.model_name}] has no scripted text responses "
-                "left; queue another response or supply text_fn."
-            )
-        item = self._text_queue.popleft()
-        if isinstance(item, Exception):
-            raise item
-        return item, self._usage, {"mock": True, "source": "script"}
+        # text_fn branch: dispatched outside the lock.
+        assert self._text_fn is not None
+        out = self._text_fn(request)
+        return out, self._usage, {"mock": True, "source": "fn"}
 
     def _invoke_structured[
         ParsedT: BaseModel
     ](self, request: LLMRequest, schema: type[ParsedT],) -> tuple[ParsedT, LLMUsage, Any]:
-        self.calls.append(MockCall(kind="structured", request=request, schema_name=schema.__name__))
-
-        if self._structured_fn is not None:
-            out = self._structured_fn(request, schema)
-            parsed = _coerce_to_schema(out, schema)
-            return parsed, self._usage, {"mock": True, "source": "fn"}
-
-        if not self._structured_queue:
-            raise ProviderError(
-                f"MockLLMClient[{self.model_name}] has no scripted structured "
-                "responses left; queue another response or supply structured_fn."
+        with self._lock:
+            self.calls.append(
+                MockCall(kind="structured", request=request, schema_name=schema.__name__)
             )
-        item = self._structured_queue.popleft()
-        if isinstance(item, Exception):
-            raise item
-        parsed = _coerce_to_schema(item, schema)
-        return parsed, self._usage, {"mock": True, "source": "script"}
+            if self._structured_fn is None:
+                if not self._structured_queue:
+                    raise ProviderError(
+                        f"MockLLMClient[{self.model_name}] has no scripted structured "
+                        "responses left; queue another response or supply structured_fn."
+                    )
+                queued: BaseModel | dict[str, Any] | Exception = self._structured_queue.popleft()
+                if isinstance(queued, Exception):
+                    raise queued
+                parsed = _coerce_to_schema(queued, schema)
+                return parsed, self._usage, {"mock": True, "source": "script"}
+
+        assert self._structured_fn is not None
+        out = self._structured_fn(request, schema)
+        parsed = _coerce_to_schema(out, schema)
+        return parsed, self._usage, {"mock": True, "source": "fn"}
 
 
 def _coerce_to_schema[ParsedT: BaseModel](item: Any, schema: type[ParsedT]) -> ParsedT:
@@ -167,8 +187,7 @@ def _coerce_to_schema[ParsedT: BaseModel](item: Any, schema: type[ParsedT]) -> P
             return schema.model_validate(item)
         except ValidationError as exc:
             raise ProviderError(
-                f"MockLLMClient received a dict that does not validate as "
-                f"{schema.__name__}: {exc}"
+                f"MockLLMClient received a dict that does not validate as {schema.__name__}: {exc}"
             ) from exc
     raise ProviderError(
         f"MockLLMClient cannot coerce {type(item).__name__} into {schema.__name__}; "
