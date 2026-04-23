@@ -1,0 +1,159 @@
+version: "seed.v1"
+description: >-
+  Seed completeness KB covering the categories present in
+  data/samples/full_schema_sample.csv. Intended as a starter set so
+  Stage 6 end-to-end tests can load a real KB; SMEs will replace this
+  with domain-authoritative content before production.
+entries:
+  - kb_id: cmp_transaction_dispute_001
+    question_or_utterance_pattern: "How do I dispute a transaction on my card?"
+    topic_list: ["disputes", "transactions", "card"]
+    intent: "transaction_dispute"
+    example_agent_response: >-
+      You can open a dispute from Card > Recent Transactions > Dispute.
+      Most disputes resolve within 7-10 business days. Keep your
+      transaction ID and any supporting documents handy. If the dispute
+      stalls, contact support to escalate.
+    completeness_notes: >-
+      A complete answer must explain eligibility, the initiation steps,
+      expected timeline, required evidence, and how to escalate.
+    required_elements:
+      - "direct acknowledgement of the user's question"
+      - "steps to initiate a dispute"
+      - "expected timeline or resolution window"
+      - "information or documents to provide"
+      - "escalation or help path"
+    optional_elements:
+      - "brief caveat about pending charges"
+    forbidden_elements:
+      - "promising a guaranteed refund"
+    policy_refs:
+      - "policy_disputes_v3"
+    priority_level: "high"
+    domain: "consumer_banking"
+    version: "1.0"
+    author: "sme.ops"
+    last_updated: "2026-02-01"
+
+  - kb_id: cmp_apr_lookup_001
+    question_or_utterance_pattern: "What is the APR on my credit card?"
+    topic_list: ["cards", "apr", "rates"]
+    intent: "apr_lookup"
+    example_agent_response: >-
+      Purchase APR is variable and falls within 19.99%-27.49%. Your
+      personalised rate depends on your account terms - check the
+      cardholder agreement for the exact number, or I can point you to
+      where it's displayed in the app.
+    completeness_notes: >-
+      A complete answer must disclose that APR is variable by customer
+      and direct the user to their cardholder agreement for the exact
+      rate; if the agent quotes a specific rate, it MUST cite the
+      supporting document.
+    required_elements:
+      - "acknowledgement that APR varies by customer / product"
+      - "reference to the cardholder agreement for the exact rate"
+      - "explicit distinction between purchase APR and cash advance APR if relevant"
+    optional_elements:
+      - "pointer to the in-app location of the rate"
+    forbidden_elements:
+      - "quoting a single APR as authoritative without citing a source"
+    policy_refs:
+      - "policy_cardholder_v4"
+    priority_level: "high"
+    domain: "consumer_banking"
+    version: "1.0"
+    author: "sme.ops"
+    last_updated: "2026-02-01"
+
+  - kb_id: cmp_fraud_protection_001
+    question_or_utterance_pattern: "Summarise my rights if I am a victim of fraud."
+    topic_list: ["fraud", "security", "unauthorized transactions"]
+    intent: "fraud_protection"
+    example_agent_response: >-
+      You have zero-liability protection for unauthorized transactions
+      reported within 60 days. Lock the card in-app immediately, then
+      contact support to issue a replacement. We will open a formal
+      investigation while the replacement is in transit.
+    completeness_notes: >-
+      A complete answer must mention the zero-liability protection, the
+      60-day reporting window, the immediate in-app card-lock action,
+      and the support contact path for a replacement.
+    required_elements:
+      - "zero-liability protection for unauthorized transactions"
+      - "60-day reporting window"
+      - "in-app card lock action"
+      - "contact support to initiate replacement"
+    optional_elements:
+      - "reassurance / empathetic opener"
+    forbidden_elements:
+      - "promising reimbursement without investigation"
+    policy_refs:
+      - "fraud_policy_v2"
+    priority_level: "critical"
+    domain: "consumer_banking"
+    version: "1.0"
+    author: "sme.ops"
+    last_updated: "2026-02-01"
+
+  - kb_id: cmp_policy_lookup_refunds_001
+    question_or_utterance_pattern: "What does our refund policy say?"
+    topic_list: ["policy", "refunds", "returns"]
+    intent: "policy_lookup"
+    example_agent_response: >-
+      Per policy_refunds_v2: full refunds for unused services within 30
+      days of purchase; physical goods can be returned within 14 days
+      for a full refund; after 14 days, fees are non-refundable.
+      Promotional credits are non-refundable. Refunds are issued to the
+      original payment method within 5-7 business days.
+    completeness_notes: >-
+      A complete answer must quote the three refund windows
+      (services 30 days, physical goods 14 days, post-14-day
+      non-refundable), call out the promotional-credit exception, and
+      state the refund mechanism / timing.
+    required_elements:
+      - "30-day window for unused services"
+      - "14-day window for physical goods"
+      - "non-refundability after 14 days"
+      - "promotional credits are non-refundable"
+      - "refund method and timing"
+    optional_elements:
+      - "citation of the governing policy document"
+    forbidden_elements:
+      - "inventing a refund window not in policy"
+    policy_refs:
+      - "policy_refunds_v2"
+    priority_level: "high"
+    domain: "consumer_banking"
+    version: "1.0"
+    author: "sme.ops"
+    last_updated: "2026-02-01"
+
+  - kb_id: cmp_card_loss_report_001
+    question_or_utterance_pattern: "I lost my card, what do I do?"
+    topic_list: ["cards", "lost card", "card replacement"]
+    intent: "card_loss_report"
+    example_agent_response: >-
+      Lock your card in the app immediately, then order a replacement
+      under Card > Manage > Replace. A new card arrives in 3-5 business
+      days. If you notice unauthorised charges, open a dispute right
+      away.
+    completeness_notes: >-
+      A complete answer must cover immediate card locking, how to
+      request a replacement, replacement delivery timing, and what to
+      do if unauthorised charges appear.
+    required_elements:
+      - "immediate card lock instruction"
+      - "how to request a replacement card"
+      - "replacement delivery timing"
+      - "what to do if unauthorised charges appear"
+    optional_elements:
+      - "offer to expedite delivery if available"
+    forbidden_elements:
+      - "telling the user to wait before locking the card"
+    policy_refs:
+      - "policy_cardholder_v4"
+    priority_level: "high"
+    domain: "consumer_banking"
+    version: "1.0"
+    author: "sme.ops"
+    last_updated: "2026-02-01"
