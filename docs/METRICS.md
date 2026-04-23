@@ -2,7 +2,8 @@
 
 All metrics are computed in `src/evaluation/` as pure functions of a per-row
 results DataFrame + metadata. No plotting, no IO, no Streamlit. Charts live
-in `src/dashboard/charts.py` and consume the outputs of this module.
+in `src/dashboard/charts.py` (Altair) and `src/dashboard/plotly_charts.py`
+(interactive risk views) and consume the outputs of this module.
 
 ## Per-pillar metrics (required)
 
@@ -92,8 +93,41 @@ helpers in `src/dashboard/`:
   disagreements; drill into the row (prompt, evidence, Langfuse trace).
 - `06_compare_runs.py` — diff MLflow runs side-by-side.
 
+## North-star thresholds (`configs/evaluation_thresholds.yaml`)
+
+Per-pillar **pass / warn / fail** gates drive the **Risk evidence** page and
+MLflow `threshold/*` metrics. Bounds cover:
+
+- `within_1_rate`, `weighted_kappa`, `mean_absolute_error`,
+  `severity_aware_alignment`, `large_miss_rate` (defined as
+  `off_by_2_rate + off_by_3_plus_rate`).
+
+Higher-is-better metrics use a target (pass) and warn floor; lower-is-better
+metrics use a target (pass) and warn ceiling. See `src/evaluation/thresholds.py`.
+
+## Diagnostics & drift (`src/evaluation/diagnostics.py`)
+
+Stdlib-only helpers for risk analytics (no dependency on `metrics.py`):
+
+- **Histogram PMF**: ordinal 1–5 probability mass for judge and human scores.
+- **Jensen–Shannon divergence**: symmetric measure of difference between two PMFs
+  (e.g. current vs baseline judge distribution).
+- **PSI-style stability**: population stability–style index on the same
+  5-bin ordinal histograms (baseline vs current).
+- **Residuals**: `judge - human`; mean residual and fraction of positive bias.
+- **OLS regression**: **human ~ judge** (human as dependent variable) with
+  closed-form slope, intercept, and **R²**. The identity line (`human = judge`)
+  is shown alongside the fit for “SME-like scale” interpretation.
+
+Baseline comparison uses a pinned `BaselineSnapshot` and requires a matching
+`dataset_fingerprint`; see `docs/OBSERVABILITY.md`.
+
 ## Tests
 
 Every metric has a golden-fixture unit test in `tests/unit/evaluation/`.
 Must-cover cases: all-agree, all-disagree, monotonic, partial labels,
 ties in kappa, ordinal edges, empty input, single-row input.
+
+Diagnostics and thresholds have dedicated unit tests under
+`tests/unit/test_evaluation_diagnostics.py` and
+`tests/unit/test_evaluation_thresholds.py`.

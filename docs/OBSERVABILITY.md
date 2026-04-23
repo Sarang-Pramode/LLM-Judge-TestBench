@@ -36,7 +36,20 @@ One **run** per evaluation execution (dataset × judge set × model config).
 - `tokens_in_<pillar>`, `tokens_out_<pillar>`
 - `cost_estimate_<pillar>` (USD)
 
-**Artifacts**:
+**Agreement, slices, and reviewer depth** (logged from **Run evaluation** after a successful run, inside the same MLflow active run):
+
+- Existing helpers on `MLflowLogger`: `log_agreement_report`, `log_slice_report`, `log_reviewer_analytics` (when reviewer signal exists).
+- **Threshold gates**: metrics under keys like `threshold/pillar/<pillar>/overall_status` (numeric encoding) plus per-metric gate detail from `log_threshold_report`.
+- **Risk diagnostics**: PMF summaries, Jensen–Shannon / PSI vs baseline (when compatible), OLS and residuals via `log_diagnostics`.
+- **Artifacts**: `diagnostics.json` (structured run diagnostics + serializable threshold report); optional `plotly/` HTML bundles for the combined risk-evidence figure when Plotly export succeeds.
+
+**Baseline for drift (product contract)**:
+
+- The Streamlit **Risk evidence** page can **pin the current run** as a session baseline (`BaselineSnapshot`: judge score PMFs per pillar + `dataset_fingerprint` + optional `run_id`).
+- Drift metrics (judge PMF JS divergence, PSI) are only interpreted when the current run’s `dataset_fingerprint` matches the baseline; otherwise the UI and diagnostics surface a compatibility flag instead of silent comparison.
+- Optional future extension: load a baseline from MLflow by `run_id` or a `role=baseline` tag (not required for the MVP).
+
+**Artifacts** (run bundle):
 
 - Merged resolved run config (`run_config.yaml`).
 - Per-row results (parquet) including judge outputs + labels + flags.
