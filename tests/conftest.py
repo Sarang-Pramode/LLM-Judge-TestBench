@@ -159,3 +159,34 @@ def _reset_judge_registry() -> Iterator[None]:
         yield
     finally:
         reset_registry()
+
+
+@pytest.fixture
+def all_pillars_registered() -> Iterator[None]:
+    """Opt-in fixture: registers the real Stage 5 pillar judges.
+
+    The autouse ``_reset_judge_registry`` clears the registry before
+    each test so fake judges in unit tests do not collide with each
+    other. Tests that need the real pillars (e.g. Stage 5 integration
+    tests) request this fixture explicitly - it re-registers the six
+    production judges for the duration of the test and leaves the
+    autouse teardown to clean up afterward.
+    """
+    from src.judges.bias_discrimination import BiasDiscriminationJudge
+    from src.judges.completeness import CompletenessJudge
+    from src.judges.factual_accuracy import FactualAccuracyJudge
+    from src.judges.hallucination import HallucinationJudge
+    from src.judges.registry import register_judge
+    from src.judges.relevance import RelevanceJudge
+    from src.judges.toxicity import ToxicityJudge
+
+    for cls in (
+        FactualAccuracyJudge,
+        HallucinationJudge,
+        RelevanceJudge,
+        CompletenessJudge,
+        ToxicityJudge,
+        BiasDiscriminationJudge,
+    ):
+        register_judge(cls, force=True)
+    yield
