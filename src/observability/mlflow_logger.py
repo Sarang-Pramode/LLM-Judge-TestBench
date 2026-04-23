@@ -40,8 +40,10 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from src.evaluation.agreement import AgreementReport, PillarAgreement
+from src.evaluation.diagnostics import RunDiagnostics
 from src.evaluation.reviewer_analysis import ReviewerAnalytics
 from src.evaluation.slices import SliceReport
+from src.evaluation.thresholds import RunThresholdReport
 from src.observability.run_metadata import (
     RunMetadata,
     to_mlflow_params,
@@ -131,6 +133,16 @@ def _guarded(tag: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         return inner
 
     return wrap
+
+
+# MLflow metric keys cannot contain certain characters. Keep this permissive:
+# MLflow 3.x accepts letters, digits, underscores, dashes, periods, slashes,
+# and spaces. We replace everything else with underscore.
+_SAFE_METRIC_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./ ")
+
+
+def _sanitize(label: str) -> str:
+    return "".join(ch if ch in _SAFE_METRIC_CHARS else "_" for ch in label)
 
 
 def _resolve_default_backend() -> _MLflowBackend | None:
@@ -348,6 +360,30 @@ class MLflowLogger:
         if metrics:
             self._backend.log_metrics(metrics)
 
+    def log_threshold_report(self, report: RunThresholdReport) -> None:
+        """Log north-star gate encodings + JSON artifact."""
+        from src.observability.mlflow_risk_logging import log_threshold_report_mlflow
+
+        log_threshold_report_mlflow(self, report)
+
+    def log_diagnostics(self, diag: RunDiagnostics) -> None:
+        """Log residual / OLS / drift scalars plus full diagnostics JSON."""
+        from src.observability.mlflow_risk_logging import log_diagnostics_mlflow
+
+        log_diagnostics_mlflow(self, diag)
+
+    def log_plotly_html(
+        self,
+        html: str,
+        *,
+        artifact_subdir: str = "plotly",
+        filename: str = "risk_evidence.html",
+    ) -> None:
+        """Write raw HTML (e.g. Plotly export) under ``artifacts/{artifact_subdir}/``."""
+        from src.observability.mlflow_risk_logging import log_plotly_html_mlflow
+
+        log_plotly_html_mlflow(self, html, artifact_subdir=artifact_subdir, filename=filename)
+
     # ---- Artifact logging ---------------------------------------------
 
     @_guarded("log_artifact_json")
@@ -426,16 +462,6 @@ def _pillar_metrics(prefix: str, agreement: PillarAgreement) -> dict[str, float]
     if agreement.spearman_correlation is not None:
         out[f"{prefix}/spearman_correlation"] = float(agreement.spearman_correlation)
     return out
-
-
-# MLflow metric keys cannot contain certain characters. Keep this permissive:
-# MLflow 3.x accepts letters, digits, underscores, dashes, periods, slashes,
-# and spaces. We replace everything else with underscore.
-_SAFE_METRIC_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./ ")
-
-
-def _sanitize(label: str) -> str:
-    return "".join(ch if ch in _SAFE_METRIC_CHARS else "_" for ch in label)
 
 
 # ---------------------------------------------------------------------------

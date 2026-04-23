@@ -19,6 +19,12 @@ from typing import Any
 import pytest
 
 from src.evaluation.agreement import AgreementReport, PillarAgreement
+from src.evaluation.diagnostics import (
+    OLSResult,
+    PillarDiagnostics,
+    RunDiagnostics,
+    histogram_pmf,
+)
 from src.evaluation.reviewer_analysis import (
     ReviewerAnalytics,
     ReviewerPairStats,
@@ -26,12 +32,19 @@ from src.evaluation.reviewer_analysis import (
     ReviewerStats,
 )
 from src.evaluation.slices import SliceReport
+from src.evaluation.thresholds import (
+    GateResult,
+    GateStatus,
+    PillarGateReport,
+    RunThresholdReport,
+)
 from src.observability.mlflow_logger import (
     MLflowLogger,
     _pillar_metrics,
     _sanitize,
     build_mlflow_logger,
 )
+from src.observability.mlflow_risk_logging import log_diagnostics_mlflow
 from src.observability.run_metadata import RunMetadata
 
 # ---------------------------------------------------------------------------
@@ -429,6 +442,73 @@ class TestResilience:
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
+
+class TestDiagnosticsAndThresholds:
+    def test_log_diagnostics_writes_metrics_and_json(self) -> None:
+        backend = FakeMLflowBackend()
+        logger = MLflowLogger(
+            tracking_uri="http://x", experiment_name="e", enabled=True, backend=backend
+        )
+        logger.start_run(_meta())
+        pmf = histogram_pmf([3, 3, 4, 4, 5])
+        diag = RunDiagnostics(
+            pillars={
+                "factual_accuracy": PillarDiagnostics(
+                    pillar="factual_accuracy",
+                    support=5,
+                    judge_pmf=pmf,
+                    human_pmf=pmf,
+                    mean_residual_judge_minus_human=0.0,
+                    pct_positive_residual=0.2,
+                    ols_human_on_judge=OLSResult(1.0, 0.0, 0.95),
+                    js_vs_baseline=0.01,
+                    psi_vs_baseline=0.02,
+                )
+            },
+            baseline_compatible=True,
+        )
+        log_diagnostics_mlflow(logger, diag)
+        metric_calls = [c for c in backend.calls if c[0] == "log_metrics"]
+        assert metric_calls
+        tag_calls = [c for c in backend.calls if c[0] == "set_tags"]
+        assert tag_calls
+        assert any(
+            c[1]["tags"].get("jtb_baseline_compatible") == "true" for c in tag_calls
+        )
+        text_calls = [c for c in backend.calls if c[0] == "log_text"]
+        assert any("diagnostics.json" in str(c[1].get("artifact_file", "")) for c in text_calls)
+
+    def test_log_threshold_report_writes_metrics_and_json(self) -> None:
+        backend = FakeMLflowBackend()
+        logger = MLflowLogger(
+            tracking_uri="http://x", experiment_name="e", enabled=True, backend=backend
+        )
+        logger.start_run(_meta())
+        pr = PillarGateReport(
+            pillar="relevance",
+            gates=(GateResult("within_1_rate", GateStatus.PASS, 0.9, "ok"),),
+            overall=GateStatus.PASS,
+        )
+        logger.log_threshold_report(RunThresholdReport(version="1", per_pillar={"relevance": pr}))
+        assert any(c[0] == "log_metrics" for c in backend.calls)
+        assert any(
+            c[0] == "set_tags" and c[1]["tags"].get("jtb_worst_gate_status") == "pass"
+            for c in backend.calls
+        )
+        assert any(
+            c[0] == "log_text" and "threshold_gates.json" in c[1].get("artifact_file", "")
+            for c in backend.calls
+        )
+
+    def test_log_plotly_html_uses_log_artifact(self) -> None:
+        backend = FakeMLflowBackend()
+        logger = MLflowLogger(
+            tracking_uri="http://x", experiment_name="e", enabled=True, backend=backend
+        )
+        logger.start_run(_meta())
+        logger.log_plotly_html("<html>x</html>")
+        assert any(c[0] == "log_artifact" for c in backend.calls)
 
 
 class TestFactory:
