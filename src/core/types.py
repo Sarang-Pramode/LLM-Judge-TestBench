@@ -59,7 +59,11 @@ class NormalizedRow(BaseModel):
     category: str = Field(..., min_length=1)
 
     # --- Strongly recommended --------------------------------------------
-    retrieved_context: list[str] | None = None
+    # Each retrieved_context item can be a plain string (doc text / chunk)
+    # OR a dict (e.g. ``{"text": ..., "doc_id": ..., "score": ...}``). The
+    # judge prompt builder renders dict items as pretty JSON, so no parsing
+    # contract is imposed on the shape - RAG systems vary wildly.
+    retrieved_context: list[str | dict[str, Any]] | None = None
     chat_history: list[Turn] | None = None
     metadata: dict[str, Any] | None = None
 
@@ -190,6 +194,14 @@ class JudgeResult(BaseModel):
 
     rubric_anchor: Score
 
+    #: Only populated by the completeness pillar, and only when running
+    #: in KB-informed mode (Stage 6). Other pillars default to empty
+    #: lists so exports have a stable schema column regardless of
+    #: pillar. The ``_check_elements_consistency`` validator enforces
+    #: that nothing appears in both lists simultaneously.
+    elements_present: list[str] = Field(default_factory=list)
+    elements_missing: list[str] = Field(default_factory=list)
+
     raw_model_name: str = Field(..., min_length=1)
     prompt_version: str = Field(..., min_length=1)
     rubric_version: str = Field(..., min_length=1)
@@ -221,7 +233,23 @@ class JudgeResult(BaseModel):
                 f"(score={self.score}, rubric_anchor={self.rubric_anchor})."
             )
 
+        # Completeness bookkeeping: an element cannot be both present
+        # and missing. Case-insensitive, whitespace-tolerant comparison
+        # because the LLM might paraphrase subtly.
+        present_norm = {_norm_element(e) for e in self.elements_present}
+        missing_norm = {_norm_element(e) for e in self.elements_missing}
+        overlap = present_norm & missing_norm
+        if overlap:
+            raise ValueError(
+                "JudgeResult: elements_present and elements_missing must be "
+                f"disjoint (conflicts: {sorted(overlap)})."
+            )
+
         return self
+
+
+def _norm_element(value: str) -> str:
+    return " ".join(value.strip().lower().split())
 
 
 # ---------------------------------------------------------------------------

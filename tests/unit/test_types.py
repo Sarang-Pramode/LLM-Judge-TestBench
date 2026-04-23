@@ -275,5 +275,7 @@ class TestRunContext:
     def test_rejects_extra_fields(self) -> None:
         with pytest.raises(ValidationError):
             RunContext(
-                run_id="r", dataset_fingerprint="sha256:x", rogue="no"  # type: ignore[call-arg]
+                run_id="r",
+                dataset_fingerprint="sha256:x",
+                rogue="no",  # type: ignore[call-arg]
             )
