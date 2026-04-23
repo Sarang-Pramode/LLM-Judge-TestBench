@@ -11,3 +11,5 @@ pyyaml>=6.0,<7
 langchain-core>=0.3,<1
 langchain-google-genai>=2.0,<3
 tenacity>=8,<10
+mlflow-skinny>=3.10,<4
+langfuse>=4,<5
