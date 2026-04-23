@@ -1,32 +1,35 @@
 """Streamlit entry point.
 
-Stage 1 is a placeholder: it imports the core settings + constants to prove
-the wiring works end-to-end, and renders a short status block. Page
-registration + the Upload / Configure / Run / Dashboard pages land in
-Stage 2 and later.
+Renders the landing page and describes the upload -> configure ->
+run -> dashboard flow. Pages live under ``src/app/pages/`` and are
+picked up automatically by Streamlit's multipage runtime.
 
 Run with::
 
     streamlit run src/app/streamlit_app.py
 
-Design rule (see .cursor/rules/streamlit-ui.mdc): this file must not import
-from ``src.llm`` or ``src.judges`` directly. It goes through
-``src.orchestration`` / ``src.evaluation`` once those exist.
+Design rule (see ``.cursor/rules/streamlit-ui.mdc``): this file must
+not import from ``src.llm`` or ``src.judges`` directly. It talks to
+``src.orchestration`` / ``src.evaluation`` / ``src.dashboard`` only.
 """
 
 from __future__ import annotations
 
 
 def main() -> None:
-    """Render the placeholder landing page.
+    """Render the landing page.
 
-    Streamlit is imported inside ``main()`` so the module stays importable
-    without a Streamlit runtime (needed for unit tests that just check
-    imports and for environments that run linters/typecheckers without
-    Streamlit installed).
+    Streamlit is imported inside ``main()`` so the module stays
+    importable without a Streamlit runtime, which matters for the
+    unit tests that just assert the module imports cleanly.
     """
     import streamlit as st
 
+    from src.app.state import (
+        SS_LAST_RUN_RESULT,
+        SS_NORMALIZED_ROWS,
+        SS_RUN_CONFIG,
+    )
     from src.core import PILLARS, REQUIRED_COLUMNS
     from src.core.settings import get_settings
 
@@ -41,28 +44,49 @@ def main() -> None:
     st.title("LLM Judge Testbench")
     st.caption(
         "Evaluation workbench for LLM judges against SME rubrics. "
-        "Stage 1 scaffold - upload, run, and dashboard pages arrive in "
-        "later stages."
+        "Upload a dataset, map columns, configure a run, execute, then "
+        "explore dashboards and disagreements."
     )
 
     with st.container(border=True):
-        st.subheader("Status")
+        st.subheader("Flow")
+        st.markdown(
+            """
+            1. **Upload** - CSV / XLSX / JSON / Parquet; map to the
+               normalized schema.
+            2. **Configure** - pick pillars, provider, concurrency.
+            3. **Run evaluation** - parallel judge execution with
+               progress and partial-failure handling.
+            4. **Dashboard** - overall + per-category agreement, score
+               distributions, confusion matrices.
+            5. **Disagreements** - filter + inspect per-row misses.
+            6. **Reviewer analytics** - activates when reviewer
+               metadata is present.
+            """
+        )
+
+    with st.container(border=True):
+        st.subheader("Session status")
+        rows = st.session_state.get(SS_NORMALIZED_ROWS)
+        run_config = st.session_state.get(SS_RUN_CONFIG)
+        last_result = st.session_state.get(SS_LAST_RUN_RESULT)
         st.write(
             {
-                "stage": 1,
+                "dataset_loaded": rows is not None and len(rows) > 0,
+                "normalized_rows": len(rows) if rows else 0,
+                "run_configured": run_config is not None,
+                "last_run_id": last_result.run_id if last_result is not None else None,
                 "pillars": list(PILLARS),
                 "required_columns": list(REQUIRED_COLUMNS),
-                "configs_dir": str(settings.configs_dir),
-                "data_dir": str(settings.data_dir),
-                "model_alias": settings.default_model_alias,
+                "provider_default": settings.default_model_alias,
                 "mlflow_configured": settings.mlflow_tracking_uri is not None,
                 "langfuse_configured": settings.langfuse_host is not None,
             }
         )
 
     st.info(
-        "Next stage: dataset ingestion + schema mapping + upload page. "
-        "See docs/ROADMAP.md for the full plan."
+        "Navigate using the left sidebar. Each page gates on the "
+        "previous one's output, so work through them in order."
     )
 
 

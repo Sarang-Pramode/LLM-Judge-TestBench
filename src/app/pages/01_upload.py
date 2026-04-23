@@ -55,6 +55,26 @@ _ALL_NORMALIZED_ORDER: tuple[str, ...] = (
 )
 
 
+def _mapping_seed_for_upload(
+    source_columns: list[str],
+    *,
+    previous: ColumnMapping | None,
+    previous_fingerprint: tuple[str, ...] | None,
+) -> tuple[ColumnMapping, tuple[str, ...]]:
+    """Same logic as :func:`src.ingestion.schema_mapper.select_mapping_seed`.
+
+    Implemented here with :func:`auto_suggest_mapping` only so the Upload
+    page does not depend on re-exporting ``select_mapping_seed`` from
+    ``src.ingestion`` (a partial checkout can otherwise break every
+    ``from src.ingestion import …`` at package import time).
+    """
+    fingerprint = tuple(sorted(source_columns))
+    suggested = auto_suggest_mapping(source_columns)
+    if previous_fingerprint is None or previous_fingerprint != fingerprint:
+        return suggested, fingerprint
+    return (previous if previous is not None else suggested), fingerprint
+
+
 def render() -> None:
     """Render the upload page. Called by Streamlit's multipage runtime."""
     st.set_page_config(page_title="Upload dataset", layout="wide")
@@ -112,9 +132,14 @@ def _render_mapping_editor(source_columns: list[str]) -> ColumnMapping:
         "the required ones (highlighted)."
     )
 
-    default_mapping = auto_suggest_mapping(source_columns)
     previous: ColumnMapping | None = st.session_state.get("jtb.mapping")
-    seed = previous if previous is not None else default_mapping
+    fp_prev: tuple[str, ...] | None = st.session_state.get("jtb.mapping_columns_fingerprint")
+    seed, fp_new = _mapping_seed_for_upload(
+        source_columns,
+        previous=previous,
+        previous_fingerprint=fp_prev,
+    )
+    st.session_state["jtb.mapping_columns_fingerprint"] = fp_new
 
     options = [_UNMAPPED_LABEL, *source_columns]
     groups = (
@@ -162,7 +187,7 @@ def _render_validation_and_preview(loaded: LoadedFile, mapping: ColumnMapping) -
         st.table([_issue_to_dict(i) for i in mapping_report.issues])
         return
     if not mapping.is_complete_for_evaluation():
-        st.warning("Required columns are not yet mapped: " f"{mapping.missing_required()}")
+        st.warning(f"Required columns are not yet mapped: {mapping.missing_required()}")
         return
 
     result = normalize_rows(loaded.rows, mapping=mapping.mappings)
