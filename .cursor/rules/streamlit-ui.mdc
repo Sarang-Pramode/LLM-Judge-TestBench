@@ -11,10 +11,12 @@ alwaysApply: false
 - Entry point: `src/app/streamlit_app.py`. Wiring only; no business logic.
 - Pages live in `src/app/pages/` using Streamlit's numbered-prefix convention:
   `01_upload.py`, `02_configure.py`, `03_run_eval.py`, `04_dashboard.py`,
-  `05_disagreements.py`, `06_compare_runs.py`.
+  `05_disagreements.py`, `06_compare_runs.py`, `07_risk_evidence.py`.
 - Reusable plotting / tables / filters in `src/dashboard/`:
-  `charts.py`, `tables.py`, `filters.py`. **All plots MUST come from
-  `dashboard/charts.py`** — no inline plotting inside pages.
+  `charts.py`, `plotly_charts.py`, `tables.py`, `filters.py`. **Plots MUST
+  come from `dashboard/`** — default Altair in `charts.py`; **Plotly is
+  allowed only in `dashboard/plotly_charts.py`** for interactive risk /
+  evidence views. No inline figure construction inside pages.
 
 ## Hard rules
 
