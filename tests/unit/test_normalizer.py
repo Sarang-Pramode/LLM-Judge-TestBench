@@ -107,9 +107,44 @@ def test_parse_retrieved_context_empty_like_returns_none() -> None:
     assert parse_retrieved_context("") is None
 
 
-def test_parse_retrieved_context_rejects_dict() -> None:
-    with pytest.raises(ValueError, match="must be a list"):
-        parse_retrieved_context('{"not": "a list"}')
+def test_parse_retrieved_context_wraps_lone_dict() -> None:
+    """A single structured chunk is wrapped into a one-element list."""
+    result = parse_retrieved_context('{"text": "chunk", "doc_id": "d-1"}')
+    assert result == [{"text": "chunk", "doc_id": "d-1"}]
+
+
+def test_parse_retrieved_context_preserves_mixed_shapes() -> None:
+    """A list of mixed strings + dicts keeps item types intact."""
+    raw = [
+        "plain text chunk",
+        {"text": "structured chunk", "doc_id": "d-2", "score": 0.91},
+        {"text": "another", "metadata": {"source": "kb"}},
+    ]
+    result = parse_retrieved_context(raw)
+    assert result == raw
+
+
+def test_parse_retrieved_context_stringifies_weird_items() -> None:
+    """Unusual scalar items are coerced to strings without raising."""
+    result = parse_retrieved_context([123, "ok"])
+    assert result == ["123", "ok"]
+
+
+def test_parse_retrieved_context_drops_emptyish_items() -> None:
+    result = parse_retrieved_context(["a", "", None, "n/a", "b"])
+    assert result == ["a", "b"]
+
+
+def test_parse_retrieved_context_accepts_raw_text_blob() -> None:
+    """A non-JSON string is treated as a single chunk of document text."""
+    blob = "This is a large free-form document.\nMultiple lines OK."
+    result = parse_retrieved_context(blob)
+    assert result == [blob]
+
+
+def test_parse_retrieved_context_empty_list_becomes_none() -> None:
+    assert parse_retrieved_context([]) is None
+    assert parse_retrieved_context(["", None]) is None
 
 
 # ---------------------------------------------------------------------------
@@ -298,10 +333,18 @@ def test_normalize_rows_missing_required_field_becomes_row_failure() -> None:
     assert "category" in failure.details
 
 
-def test_normalize_rows_malformed_json_context_fails_row_not_batch() -> None:
+def test_normalize_rows_accepts_nonjson_context_as_free_text_blob() -> None:
+    """Non-JSON text in retrieved_context is accepted as a single-chunk
+    document blob.
+
+    The system deliberately does not require retrieved_context to be
+    structured (RAG systems dump raw documents, chunk lists, or
+    metadata-bearing dicts interchangeably). See
+    ``parse_retrieved_context`` for the full contract.
+    """
     source = [
         {"id": "r1", "prompt": "p", "response": "r", "topic": "t", "ctx": '["a", "b"]'},
-        {"id": "r2", "prompt": "p", "response": "r", "topic": "t", "ctx": "this is not json <>"},
+        {"id": "r2", "prompt": "p", "response": "r", "topic": "t", "ctx": "free text doc <>"},
     ]
     mapping = {
         "record_id": "id",
@@ -311,10 +354,11 @@ def test_normalize_rows_malformed_json_context_fails_row_not_batch() -> None:
         "retrieved_context": "ctx",
     }
     result = normalize_rows(source, mapping=mapping)
-    assert result.success_count == 1
-    assert result.failure_count == 1
-    assert result.failures[0].record_id == "r2"
-    assert "retrieved_context" in result.failures[0].details
+    assert result.success_count == 2
+    assert result.failure_count == 0
+    by_id = {row.record_id: row for row in result.rows}
+    assert by_id["r1"].retrieved_context == ["a", "b"]
+    assert by_id["r2"].retrieved_context == ["free text doc <>"]
 
 
 def test_normalize_rows_label_out_of_range_is_per_row_failure() -> None:

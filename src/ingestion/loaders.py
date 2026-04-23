@@ -90,7 +90,7 @@ def detect_format(path: Path | str) -> FileFormat:
     fmt = _EXTENSIONS.get(p.suffix.lower())
     if fmt is None:
         raise SchemaValidationError(
-            f"Unsupported file extension: {p.suffix!r}. " f"Supported: {sorted(set(_EXTENSIONS))}."
+            f"Unsupported file extension: {p.suffix!r}. Supported: {sorted(set(_EXTENSIONS))}."
         )
     return fmt
 
@@ -185,7 +185,7 @@ def _load_json(data: bytes) -> tuple[list[str], list[dict[str, Any]]]:
                 rows_raw = [parsed]
         else:
             raise SchemaValidationError(
-                "Top-level JSON value must be an array or object; got " f"{type(parsed).__name__}."
+                f"Top-level JSON value must be an array or object; got {type(parsed).__name__}."
             )
 
     rows: list[dict[str, Any]] = []
@@ -194,7 +194,7 @@ def _load_json(data: bytes) -> tuple[list[str], list[dict[str, Any]]]:
     for raw in rows_raw:
         if not isinstance(raw, dict):
             raise SchemaValidationError(
-                "JSON rows must be objects; got " f"{type(raw).__name__} instead."
+                f"JSON rows must be objects; got {type(raw).__name__} instead."
             )
         rows.append(raw)
         for key in raw:

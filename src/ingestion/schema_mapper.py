@@ -46,6 +46,7 @@ __all__ = [
     "auto_suggest_mapping",
     "load_mapping",
     "save_mapping",
+    "select_mapping_seed",
 ]
 
 
@@ -104,8 +105,7 @@ class ColumnMapping(BaseModel):
         for target, source in self.mappings.items():
             if source in seen:
                 raise ValueError(
-                    f"Source column {source!r} is mapped to both "
-                    f"{seen[source]!r} and {target!r}."
+                    f"Source column {source!r} is mapped to both {seen[source]!r} and {target!r}."
                 )
             seen[source] = target
         return self
@@ -168,7 +168,7 @@ def load_mapping(path: Path | str) -> ColumnMapping:
         raise MappingSaveLoadError(f"Mapping file is empty: {p}")
     if not isinstance(raw, dict):
         raise MappingSaveLoadError(
-            f"Mapping file {p} must contain a mapping at top level; got " f"{type(raw).__name__}."
+            f"Mapping file {p} must contain a mapping at top level; got {type(raw).__name__}."
         )
     try:
         return ColumnMapping.model_validate(raw)
@@ -234,6 +234,27 @@ def auto_suggest_mapping(source_columns: list[str]) -> ColumnMapping:
         claimed_sources.add(source)
 
     return ColumnMapping(mappings=suggestions, name="auto_suggested")
+
+
+def select_mapping_seed(
+    source_columns: list[str],
+    *,
+    previous: ColumnMapping | None,
+    previous_fingerprint: tuple[str, ...] | None,
+) -> tuple[ColumnMapping, tuple[str, ...]]:
+    """Choose the mapping object that seeds the upload UI.
+
+    When the set of **source** column names changes (new file upload),
+    returns a fresh :func:`auto_suggest_mapping` so optional fields such
+    as ``reviewer_name`` are not left unmapped because
+    ``st.session_state`` still holds a mapping from an older dataset
+    whose selectboxes defaulted to \"-- none --\" for those fields.
+    """
+    fingerprint = tuple(sorted(source_columns))
+    suggested = auto_suggest_mapping(source_columns)
+    if previous_fingerprint is None or previous_fingerprint != fingerprint:
+        return suggested, fingerprint
+    return (previous if previous is not None else suggested), fingerprint
 
 
 def _canon(value: str) -> str:

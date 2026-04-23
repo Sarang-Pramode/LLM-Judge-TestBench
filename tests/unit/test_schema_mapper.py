@@ -14,6 +14,7 @@ from src.ingestion.schema_mapper import (
     auto_suggest_mapping,
     load_mapping,
     save_mapping,
+    select_mapping_seed,
 )
 
 # ---------------------------------------------------------------------------
@@ -160,3 +161,61 @@ def test_auto_suggest_is_case_insensitive_and_strips_separators() -> None:
     assert "record_id" in suggestion.mappings
     assert "user_input" in suggestion.mappings
     assert suggestion.is_complete_for_evaluation()
+
+
+def test_select_mapping_seed_resets_when_source_columns_change() -> None:
+    """Stale session mappings must not omit optional fields on a new file."""
+    old_cols = ["id", "prompt", "response", "topic"]
+    old_fp = tuple(sorted(old_cols))
+    previous = auto_suggest_mapping(old_cols)
+    assert "reviewer_name" not in previous.mappings
+
+    new_cols = [
+        "record_id",
+        "user_input",
+        "agent_output",
+        "category",
+        "reviewer_name",
+        "reviewer_id",
+        "label_factual_accuracy",
+    ]
+    seed, fp = select_mapping_seed(
+        new_cols,
+        previous=previous,
+        previous_fingerprint=old_fp,
+    )
+    assert fp == tuple(sorted(new_cols))
+    assert seed.mappings.get("reviewer_name") == "reviewer_name"
+    assert seed.mappings.get("reviewer_id") == "reviewer_id"
+
+
+def test_select_mapping_seed_keeps_user_mapping_when_same_file_shape() -> None:
+    columns = ["record_id", "user_input", "agent_output", "category", "reviewer_name"]
+    fp = tuple(sorted(columns))
+    previous = ColumnMapping(
+        mappings={
+            "record_id": "record_id",
+            "user_input": "user_input",
+            "agent_output": "agent_output",
+            "category": "category",
+            "reviewer_name": "reviewer_name",
+        }
+    )
+    seed, out_fp = select_mapping_seed(
+        columns,
+        previous=previous,
+        previous_fingerprint=fp,
+    )
+    assert out_fp == fp
+    assert seed is previous
+
+
+def test_ground_truth_eval_preset_loads_and_includes_reviewers() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    preset = repo_root / "configs" / "mappings" / "ground_truth_eval_sample.yaml"
+    if not preset.exists():
+        pytest.skip(f"Preset not present: {preset}")
+    mapping = load_mapping(preset)
+    assert mapping.is_complete_for_evaluation()
+    assert mapping.mappings.get("reviewer_name") == "reviewer_name"
+    assert mapping.mappings.get("reviewer_id") == "reviewer_id"

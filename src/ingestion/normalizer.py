@@ -152,19 +152,61 @@ def parse_json_like(value: Any) -> Any:
         raise ValueError(f"Could not parse JSON-like value: {exc}") from exc
 
 
-def parse_retrieved_context(value: Any) -> list[str] | None:
-    """Parse ``retrieved_context`` into ``list[str] | None``."""
+def parse_retrieved_context(value: Any) -> list[str | dict[str, Any]] | None:
+    """Parse ``retrieved_context`` into ``list[str | dict[str, Any]] | None``.
+
+    Accepts (from most permissive to strictest):
+
+    - ``None`` / empty-ish -> ``None``
+    - ``str`` -> parsed as JSON if possible; otherwise treated as a
+      single-chunk doc blob wrapped into ``[text]``.
+    - ``list`` -> each element kept as-is if it's a string or a dict;
+      any other scalar is stringified. ``None``/empty entries are
+      dropped so downstream code can trust ``len(context) > 0``.
+    - ``dict`` -> wrapped as a single structured chunk: ``[dict]``.
+
+    Judge prompts pretty-print dict chunks as JSON, so the exact
+    schema of dict items is a consumer-side concern - there is no
+    required shape. This keeps the system compatible with arbitrary
+    RAG payloads (per-chunk scores, doc IDs, metadata, etc.).
+    """
     if is_empty_ish(value):
         return None
-    parsed = parse_json_like(value) if isinstance(value, str) else value
+    if isinstance(value, str):
+        try:
+            parsed = parse_json_like(value)
+        except ValueError:
+            # Non-JSON free-form text blob - treat as a single chunk of
+            # raw document text. This makes the pipeline tolerant of RAG
+            # systems that dump raw doc text into a CSV cell.
+            return [value]
+    else:
+        parsed = value
     if parsed is None:
         return None
     if isinstance(parsed, list):
-        return [str(x) for x in parsed if not is_empty_ish(x)]
+        out: list[str | dict[str, Any]] = []
+        for x in parsed:
+            if is_empty_ish(x):
+                continue
+            if isinstance(x, dict):
+                # Keys must be strings so downstream JSON round-trips.
+                out.append({str(k): v for k, v in x.items()})
+            elif isinstance(x, str):
+                out.append(x)
+            else:
+                out.append(str(x))
+        return out or None
+    if isinstance(parsed, dict):
+        return [{str(k): v for k, v in parsed.items()}]
     if isinstance(parsed, str):
-        # Lone string -> single-chunk context.
         return [parsed]
-    raise ValueError(f"retrieved_context must be a list or string; got {type(parsed).__name__}.")
+    # Unknown scalar type - stringify as a single chunk. Previous
+    # versions raised here; loosening keeps ingestion forgiving given
+    # that retrieved_context is a strongly-recommended field, not a
+    # required one, and users want arbitrary RAG payloads to flow
+    # through without extra parsing code.
+    return [str(parsed)]
 
 
 def parse_chat_history(value: Any) -> list[Turn] | None:
@@ -381,7 +423,7 @@ def _coerce_int(field_name: str, value: Any) -> int:
                 raise ValueError(f"{field_name}: could not parse {value!r} as integer.") from exc
             if not as_float.is_integer():
                 raise ValueError(
-                    f"{field_name}: expected integer, got non-integer " f"float {value!r}."
+                    f"{field_name}: expected integer, got non-integer float {value!r}."
                 ) from None
             return int(as_float)
     raise ValueError(f"{field_name}: unsupported type {type(value).__name__}.")

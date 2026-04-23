@@ -121,9 +121,16 @@ def test_validate_normalization_adds_catchall_for_detail_less_failures() -> None
 
 
 def test_mapping_validation_and_normalization_compose() -> None:
+    """Mapping passes validation; normalization reports any per-row failures.
+
+    Fails the second row via a boolean in a label column (labels reject
+    booleans explicitly - see ``_coerce_int``). retrieved_context is
+    deliberately *not* used to force a failure here because the
+    contract accepts arbitrary free-text blobs as a single chunk.
+    """
     source_rows = [
-        {"id": "r1", "prompt": "hi", "response": "hello", "topic": "greetings"},
-        {"id": "r2", "prompt": "?", "response": "?", "topic": "q", "ctx": "not json <>"},
+        {"id": "r1", "prompt": "hi", "response": "hello", "topic": "greetings", "lab": 4},
+        {"id": "r2", "prompt": "?", "response": "?", "topic": "q", "lab": True},
     ]
     mapping = ColumnMapping(
         mappings={
@@ -131,14 +138,14 @@ def test_mapping_validation_and_normalization_compose() -> None:
             "user_input": "prompt",
             "agent_output": "response",
             "category": "topic",
-            "retrieved_context": "ctx",
+            "label_toxicity": "lab",
         }
     )
-    source_columns = ["id", "prompt", "response", "topic", "ctx"]
+    source_columns = ["id", "prompt", "response", "topic", "lab"]
     map_report: ValidationReport = validate_mapping(mapping, source_columns=source_columns)
     assert map_report.ok is True
 
     norm_result = normalize_rows(source_rows, mapping=mapping.mappings)
     norm_report = validate_normalization(norm_result)
     assert not norm_report.ok
-    assert "retrieved_context" in {i.column for i in norm_report.issues}
+    assert "label_toxicity" in {i.column for i in norm_report.issues}
