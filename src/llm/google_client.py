@@ -110,9 +110,11 @@ class GoogleGenAIClient(LLMClient):
         usage = _extract_usage(response)
         return text, usage, response
 
-    def _invoke_structured[
-        ParsedT: BaseModel
-    ](self, request: LLMRequest, schema: type[ParsedT],) -> tuple[ParsedT, LLMUsage, Any]:
+    def _invoke_structured[ParsedT: BaseModel](
+        self,
+        request: LLMRequest,
+        schema: type[ParsedT],
+    ) -> tuple[ParsedT, LLMUsage, Any]:
         messages = _build_messages(request)
         try:
             structured = self._chat.with_structured_output(schema, include_raw=True)

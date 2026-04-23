@@ -189,9 +189,11 @@ class LLMClient(ABC):
             raw=raw,
         )
 
-    def generate_structured[
-        ParsedT: BaseModel
-    ](self, request: LLMRequest, schema: type[ParsedT],) -> StructuredResponse[ParsedT]:
+    def generate_structured[ParsedT: BaseModel](
+        self,
+        request: LLMRequest,
+        schema: type[ParsedT],
+    ) -> StructuredResponse[ParsedT]:
         """Run the request and return a schema-validated structured response."""
         start = time.perf_counter()
         attempts_used, parsed, usage, raw = self._run_with_retry(
@@ -222,9 +224,11 @@ class LLMClient(ABC):
         """
 
     @abstractmethod
-    def _invoke_structured[
-        ParsedT: BaseModel
-    ](self, request: LLMRequest, schema: type[ParsedT],) -> tuple[ParsedT, LLMUsage, Any]:
+    def _invoke_structured[ParsedT: BaseModel](
+        self,
+        request: LLMRequest,
+        schema: type[ParsedT],
+    ) -> tuple[ParsedT, LLMUsage, Any]:
         """Return ``(parsed, usage, raw_payload)``.
 
         The parsed value must already be an instance of ``schema``;

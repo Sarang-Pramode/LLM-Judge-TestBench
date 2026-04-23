@@ -143,9 +143,11 @@ class MockLLMClient(LLMClient):
         out = self._text_fn(request)
         return out, self._usage, {"mock": True, "source": "fn"}
 
-    def _invoke_structured[
-        ParsedT: BaseModel
-    ](self, request: LLMRequest, schema: type[ParsedT],) -> tuple[ParsedT, LLMUsage, Any]:
+    def _invoke_structured[ParsedT: BaseModel](
+        self,
+        request: LLMRequest,
+        schema: type[ParsedT],
+    ) -> tuple[ParsedT, LLMUsage, Any]:
         with self._lock:
             self.calls.append(
                 MockCall(kind="structured", request=request, schema_name=schema.__name__)
