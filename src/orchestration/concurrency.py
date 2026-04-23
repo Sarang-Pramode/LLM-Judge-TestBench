@@ -118,9 +118,7 @@ class RunAborted(RuntimeError):
     """
 
 
-def execute_parallel[
-    T
-](
+def execute_parallel[T](
     tasks: Iterable[Callable[[], T]],
     *,
     policy: ConcurrencyPolicy,
@@ -181,15 +179,11 @@ def execute_parallel[
     return results
 
 
-def _make_done_callback[
-    T
-](
+def _make_done_callback[T](
     index: int,
     results: list[T],
     on_complete: Callable[[T], None] | None,
-) -> Callable[
-    [Future[T]], None
-]:
+) -> Callable[[Future[T]], None]:
     """Build a single-shot ``Future`` done-callback that stores the result."""
 
     def _cb(future: Future[T]) -> None:
