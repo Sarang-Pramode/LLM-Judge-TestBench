@@ -36,14 +36,14 @@ Requires **Python 3.12**.
 # 1. Create the virtualenv and install runtime + dev deps
 make install-dev
 
-# 2. Run the test suite (83 tests as of Stage 1)
+# 2. Run the test suite (658 tests as of Stage 10)
 make test
 
 # 3. Lint + typecheck
 make lint
 make typecheck
 
-# 4. Launch the Streamlit placeholder (Stage 1)
+# 4. Launch the full Streamlit app (Upload -> Configure -> Run -> Dashboard)
 make run
 ```
 
@@ -93,5 +93,54 @@ For contributors **and** coding agents:
 
 ## Status
 
-Scaffolding stage. Code not yet implemented. The docs and rules are the
-source of truth while the repo is being built out.
+Stages 1-10 complete. The repo now supports:
+
+- Ingestion + schema mapping + validation (Stage 2).
+- An LLM provider abstraction with a LangChain-backed Google GenAI
+  client plus a mock client (Stage 3).
+- A config-driven judge framework and registry (Stage 4).
+- All six v1 pillar judges wired end-to-end through the registry
+  (Stage 5).
+- A completeness knowledge bank: models, loader, matcher, task-profile
+  builder, and a KB-aware `CompletenessJudge` that reports
+  `kb_informed` or `generic_fallback` mode in `JudgeOutcome.extras`
+  (Stage 6). A seed KB ships at `configs/completeness_kb/seed.yaml`.
+- A parallel **evaluation runner** (`src/orchestration/`) that fans
+  `(row, pillar)` tasks across a thread pool with per-provider
+  rate-limit throttles, content-addressed outcome caching, progress
+  and per-outcome callbacks, deterministic output ordering, and full
+  failure isolation (Stage 7). Public API: `EvaluationRunner`,
+  `RunPlan`, `RunResult`, `ConcurrencyPolicy`, `InMemoryOutcomeCache`.
+- A **metric engine** (`src/evaluation/`) that joins runner outcomes
+  to SME labels and produces per-pillar agreement (exact match,
+  within-1, off-by-2, off-by-3+, MAE, severity-aware alignment,
+  Cohen's weighted kappa, Spearman, score distributions, confusion
+  matrices) plus sliced reports by category / reviewer / intent /
+  topic / model and standalone reviewer analytics that activate only
+  when reviewer metadata exists (Stage 8). Public API:
+  `join_outcomes_with_labels`, `compute_agreement_report`,
+  `compute_sliced_report`, `compute_reviewer_analytics`,
+  `has_reviewer_signal`.
+- A **Streamlit dashboard + disagreement explorer** (`src/app/pages/`
+  and `src/dashboard/`) with six pages - Upload, Configure, Run,
+  Dashboard, Disagreements, Reviewer analytics (Stage 9). Category
+  is a first-class dimension in every view; reviewer analytics
+  auto-activates when reviewer metadata is present. All plotting is
+  centralized in `src/dashboard/charts.py` (Altair) and pages only
+  orchestrate widgets - no inline chart construction. Session state
+  keys are namespaced under `jtb.` and documented in
+  `src/app/state.py`. Provider is selectable at run time (`mock` for
+  offline demos, `google` for real Gemini calls).
+- **Observability** (`src/observability/`, Stage 10). Every run gets a
+  content-based dataset fingerprint and run-config hash, aggregate
+  metrics (agreement, slices, reviewer analytics) flow to **MLflow**,
+  and each `(row, pillar)` judge call opens a **Langfuse** generation
+  trace. Both backends are optional dependencies and degrade gracefully
+  to no-ops when credentials or libraries are missing - observability
+  failures never break a run. See `src/observability/__init__.py` for
+  the public API (`RunMetadata`, `build_run_metadata`,
+  `MLflowLogger`, `LangfuseTracer`, `build_observability_callbacks`)
+  and `docs/OBSERVABILITY.md` for environment variables.
+
+Remaining stages (exports, hardening) are tracked in
+`docs/ROADMAP.md`.
