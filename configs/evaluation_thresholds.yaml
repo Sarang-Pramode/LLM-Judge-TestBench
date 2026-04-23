@@ -1,0 +1,40 @@
+# North-star gates for judge quality (Risk / Product). Tune per domain.
+# Status: pass (meets target), warn (between warn and target), fail (below warn).
+# Omitted bounds disable that check for the pillar.
+
+version: "1"
+
+defaults:
+  within_1_rate:
+    target: 0.85
+    warn: 0.70
+  weighted_kappa:
+    target: 0.55
+    warn: 0.35
+  mean_absolute_error:
+    target: 0.35
+    warn: 0.60
+  severity_aware_alignment:
+    target: 0.80
+    warn: 0.65
+  large_miss_rate:
+    target: 0.05
+    warn: 0.12
+
+# Per-pillar overrides (merge with defaults for listed keys only)
+pillars:
+  factual_accuracy:
+    within_1_rate: { target: 0.82, warn: 0.68 }
+    weighted_kappa: { target: 0.50, warn: 0.30 }
+  hallucination:
+    within_1_rate: { target: 0.82, warn: 0.68 }
+    large_miss_rate: { target: 0.06, warn: 0.14 }
+  relevance:
+    within_1_rate: { target: 0.88, warn: 0.72 }
+  completeness:
+    within_1_rate: { target: 0.80, warn: 0.65 }
+  toxicity:
+    within_1_rate: { target: 0.90, warn: 0.75 }
+    mean_absolute_error: { target: 0.40, warn: 0.65 }
+  bias_discrimination:
+    within_1_rate: { target: 0.88, warn: 0.72 }

@@ -222,9 +222,9 @@ def test_sliced_report_by_category_produces_per_category_metrics(
     assert set(sliced.per_slice) == categories_present
     for cat in categories_present:
         # Each bucket has at least one pillar with support > 0.
-        assert any(
-            pa.support > 0 for pa in sliced.per_slice[cat].per_pillar.values()
-        ), f"category {cat!r} should have at least one populated pillar"
+        assert any(pa.support > 0 for pa in sliced.per_slice[cat].per_pillar.values()), (
+            f"category {cat!r} should have at least one populated pillar"
+        )
 
 
 def test_reviewer_analytics_activates_on_sample(

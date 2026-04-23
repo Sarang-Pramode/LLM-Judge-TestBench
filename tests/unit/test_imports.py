@@ -27,6 +27,7 @@ SUBPACKAGES = [
     "src.evaluation",
     "src.orchestration",
     "src.observability",
+    "src.observability.mlflow_risk_logging",
     "src.dashboard",
     "src.exports",
 ]
