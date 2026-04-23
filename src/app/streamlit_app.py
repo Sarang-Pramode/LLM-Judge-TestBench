@@ -62,6 +62,8 @@ def main() -> None:
             5. **Disagreements** - filter + inspect per-row misses.
             6. **Reviewer analytics** - activates when reviewer
                metadata is present.
+            7. **Risk evidence** - north-star gates, Plotly deep dives,
+               drift vs a pinned baseline; pairs with MLflow run comparison.
             """
         )
 

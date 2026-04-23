@@ -40,6 +40,7 @@ from streamlit.runtime.scriptrunner_utils.script_run_context import (
 )
 
 from src.app.state import (
+    SS_BASELINE_SNAPSHOT,
     SS_DATASET_NAME,
     SS_LAST_RUN_RESULT,
     SS_LAST_RUN_ROWS,
@@ -50,9 +51,19 @@ from src.app.state import (
 from src.completeness.kb_loader import load_kb
 from src.completeness.models import CompletenessKB
 from src.core.constants import PILLARS
-from src.core.exceptions import ProviderError
+from src.core.exceptions import ConfigLoadError, ProviderError
 from src.core.settings import get_settings
 from src.core.types import NormalizedRow, RunContext
+from src.dashboard.plotly_charts import combined_risk_evidence_html
+from src.evaluation.agreement import compute_agreement_report
+from src.evaluation.diagnostics import BaselineSnapshot, compute_run_diagnostics
+from src.evaluation.join import join_outcomes_with_labels
+from src.evaluation.reviewer_analysis import compute_reviewer_analytics, has_reviewer_signal
+from src.evaluation.slices import compute_sliced_report, slice_by_category
+from src.evaluation.thresholds import (
+    evaluate_agreement_against_thresholds,
+    load_evaluation_thresholds,
+)
 from src.judges import load_judge_bundle
 from src.judges.base import JudgeCoreOutput
 from src.llm.base import LLMClient, LLMRequest, LLMUsage
@@ -68,6 +79,11 @@ from src.observability import (
     dataset_fingerprint,
     run_config_hash,
 )
+from src.observability.mlflow_risk_logging import (
+    log_diagnostics_mlflow,
+    log_plotly_html_mlflow,
+    log_threshold_report_mlflow,
+)
 from src.orchestration import ConcurrencyPolicy, EvaluationRunner, RunPlan
 from src.orchestration.caching import InMemoryOutcomeCache, NoCache
 
@@ -75,6 +91,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 JUDGES_DIR = REPO_ROOT / "configs" / "judges"
 RUBRICS_DIR = REPO_ROOT / "configs" / "rubrics"
 DEFAULT_KB = REPO_ROOT / "configs" / "completeness_kb" / "seed.yaml"
+THRESHOLDS_YAML = REPO_ROOT / "configs" / "evaluation_thresholds.yaml"
 
 
 def render() -> None:
@@ -197,9 +214,7 @@ def _run(rows: list[NormalizedRow], run_config: RunConfig) -> None:
             add_script_run_ctx(thread=threading.current_thread(), ctx=_streamlit_ctx)
         with progress_lock:
             if _streamlit_ctx is not None:
-                progress_bar.progress(
-                    done / total, text=f"{done} / {total} tasks complete"
-                )
+                progress_bar.progress(done / total, text=f"{done} / {total} tasks complete")
 
     langfuse_tracer.start_run(run_metadata)
     callbacks = build_observability_callbacks(
@@ -225,6 +240,56 @@ def _run(rows: list[NormalizedRow], run_config: RunConfig) -> None:
         try:
             with mlflow_logger.active_run(run_metadata):
                 result = EvaluationRunner().run(plan)
+                pillars_seq = list(run_config.pillars)
+                joined = join_outcomes_with_labels(rows, result.outcomes, pillars=pillars_seq)
+                report = compute_agreement_report(
+                    joined.items, pillars=pillars_seq, include_overall=True
+                )
+                mlflow_logger.log_agreement_report(report)
+                sliced = compute_sliced_report(
+                    joined.items,
+                    selector=slice_by_category,
+                    dimension="category",
+                    pillars=pillars_seq,
+                    include_overall_per_slice=False,
+                )
+                mlflow_logger.log_slice_report(sliced)
+                if has_reviewer_signal(joined.items):
+                    mlflow_logger.log_reviewer_analytics(
+                        compute_reviewer_analytics(joined.items, pillars=pillars_seq)
+                    )
+                raw_base = st.session_state.get(SS_BASELINE_SNAPSHOT)
+                baseline_obj: BaselineSnapshot | None = None
+                if isinstance(raw_base, dict):
+                    try:
+                        baseline_obj = BaselineSnapshot.from_serializable(raw_base)
+                    except (KeyError, TypeError, ValueError):
+                        baseline_obj = None
+                diag = compute_run_diagnostics(
+                    joined.items,
+                    pillars=pillars_seq,
+                    dataset_fingerprint=run_context.dataset_fingerprint,
+                    baseline=baseline_obj,
+                )
+                log_diagnostics_mlflow(mlflow_logger, diag)
+                try:
+                    cfg_thr = load_evaluation_thresholds(THRESHOLDS_YAML)
+                except ConfigLoadError:
+                    cfg_thr = None
+                if cfg_thr is not None:
+                    log_threshold_report_mlflow(
+                        mlflow_logger,
+                        evaluate_agreement_against_thresholds(report, cfg_thr),
+                    )
+                try:
+                    html_bundle = combined_risk_evidence_html(
+                        joined.items,
+                        diag,
+                        baseline_pmfs=(baseline_obj.judge_pmfs if baseline_obj else None),
+                    )
+                    log_plotly_html_mlflow(mlflow_logger, html_bundle)
+                except Exception:
+                    pass
                 mlflow_logger.log_run_result(result)
         except Exception as exc:
             status.update(label="Run failed", state="error")

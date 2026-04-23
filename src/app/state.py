@@ -21,6 +21,7 @@ from typing import Final
 from src.core.constants import PILLARS
 
 __all__ = [
+    "SS_BASELINE_SNAPSHOT",
     "SS_DATASET_NAME",
     "SS_LAST_RUN_RESULT",
     "SS_LAST_RUN_ROWS",
@@ -51,6 +52,9 @@ SS_LAST_RUN_RESULT: Final[str] = "jtb.last_run_result"
 #: the dashboard keeps working even if the user uploads a new file
 #: without re-running.
 SS_LAST_RUN_ROWS: Final[str] = "jtb.last_run_rows"
+#: Optional pinned baseline for drift (dict from
+#: :meth:`BaselineSnapshot.to_serializable`).
+SS_BASELINE_SNAPSHOT: Final[str] = "jtb.baseline_snapshot"
 
 
 # ---------------------------------------------------------------------------
