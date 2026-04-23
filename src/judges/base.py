@@ -81,6 +81,12 @@ class JudgeCoreOutput(BaseModel):
     why_not_higher: str | None = None
     why_not_lower: str | None = None
     rubric_anchor: Score
+    #: Populated only by the completeness pillar when running in
+    #: KB-informed mode (Stage 6). Other pillars leave these empty.
+    #: Kept on the base core output so every judge produces the same
+    #: serialisation shape downstream consumers can depend on.
+    elements_present: list[str] = Field(default_factory=list)
+    elements_missing: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_invariants(self) -> JudgeCoreOutput:
@@ -97,6 +103,14 @@ class JudgeCoreOutput(BaseModel):
             raise ValueError(
                 "JudgeCoreOutput: rubric_anchor must be within +/- 1 of score "
                 f"(score={self.score}, rubric_anchor={self.rubric_anchor})."
+            )
+        present_norm = {" ".join(e.strip().lower().split()) for e in self.elements_present}
+        missing_norm = {" ".join(e.strip().lower().split()) for e in self.elements_missing}
+        overlap = present_norm & missing_norm
+        if overlap:
+            raise ValueError(
+                "JudgeCoreOutput: elements_present and elements_missing must be "
+                f"disjoint (conflicts: {sorted(overlap)})."
             )
         return self
 
@@ -382,6 +396,8 @@ class BaseJudge(ABC):
             why_not_higher=core.why_not_higher,
             why_not_lower=core.why_not_lower,
             rubric_anchor=core.rubric_anchor,
+            elements_present=list(core.elements_present),
+            elements_missing=list(core.elements_missing),
             raw_model_name=model_name,
             prompt_version=self.config.prompt_version,
             rubric_version=self.rubric.version,

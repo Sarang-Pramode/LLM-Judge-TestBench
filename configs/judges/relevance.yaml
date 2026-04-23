@@ -1,0 +1,26 @@
+# Reference judge config for the relevance pillar.
+#
+# Rubric content lives in configs/rubrics/relevance.yaml. Cross-file invariants
+# (pillar + version match) are enforced by JudgeBundle at load time.
+pillar: relevance
+prompt_version: "relevance.v1"
+
+rubric_path: "../rubrics/relevance.yaml"
+rubric_version: "v1.0"
+
+model_alias: judge-default
+
+temperature: 0.0
+max_output_tokens: 1024
+timeout_s: 60.0
+
+retry:
+  max_attempts: 3
+  initial_backoff_s: 0.5
+  max_backoff_s: 8.0
+  backoff_multiplier: 2.0
+  jitter_s: 0.25
+
+notes: >
+  V1 relevance judge. Update prompt_version on every meaningful prompt change
+  so run metadata stays traceable.

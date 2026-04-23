@@ -129,7 +129,7 @@ def validate_against_rubric(
     if failures:
         reasons = ", ".join(f.reason for f in failures)
         raise JudgeOutputParseError(
-            f"Judge output for pillar {rubric.pillar!r} failed rubric " f"validation: {reasons}.",
+            f"Judge output for pillar {rubric.pillar!r} failed rubric validation: {reasons}.",
             failures=failures,
         )
     return parsed

@@ -1,0 +1,57 @@
+# Rubric for the relevance pillar.
+#
+# Focus: whether the agent's response actually addresses the user's
+# immediate question. Does NOT evaluate factual correctness or depth -
+# just "did you answer what was asked?".
+pillar: relevance
+version: "v1.0"
+description: |
+  Measures whether the agent_output is a topically appropriate answer to
+  the user_input. Does not judge factuality, completeness, tone, or
+  style. Off-topic, partial-topic, or tangential responses should be
+  penalised; scoped follow-up clarification is acceptable if the
+  question is ambiguous.
+
+score_min: 1
+score_max: 5
+
+required_inputs:
+  - user_input
+  - agent_output
+
+anchors:
+  - score: 1
+    name: "Off-topic"
+    description: >
+      Response does not address the user's question at all; discusses
+      unrelated content, or is a generic non-answer.
+  - score: 2
+    name: "Mostly off-topic"
+    description: >
+      Response touches the topic but mainly answers a different
+      question or dumps irrelevant material. Significant re-read cost
+      for the user.
+  - score: 3
+    name: "Partially relevant"
+    description: >
+      Response answers part of the question or answers a related but
+      distinct one. A user would get some value, but also unneeded or
+      missing scope.
+  - score: 4
+    name: "Mostly relevant"
+    description: >
+      Response addresses the user's question with at most minor scope
+      drift (e.g. an unrequested but adjacent tip).
+  - score: 5
+    name: "Fully relevant"
+    description: >
+      Response directly and exclusively answers the user's question,
+      or asks a scoped clarifying question when ambiguity genuinely
+      blocks answering.
+
+failure_tags:
+  - off_topic
+  - answered_different_question
+  - ignored_user_question
+  - excessive_scope_creep
+  - irrelevant_disclaimer_dominates

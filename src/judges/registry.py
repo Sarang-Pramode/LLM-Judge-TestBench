@@ -17,13 +17,17 @@ Registration rules:
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Iterator
-from typing import overload
+from typing import TYPE_CHECKING, Any, overload
 
 from src.core.exceptions import JudgeExecutionError
 from src.judges.base import BaseJudge
 from src.judges.config import JudgeBundle
 from src.llm.base import LLMClient
+
+if TYPE_CHECKING:
+    from src.completeness.models import CompletenessKB
 
 __all__ = [
     "build_judge",
@@ -46,6 +50,8 @@ _REGISTRY: dict[str, type[BaseJudge]] = {}
 
 @overload
 def register_judge(cls: type[BaseJudge], /) -> type[BaseJudge]: ...
+@overload
+def register_judge(cls: type[BaseJudge], *, force: bool) -> type[BaseJudge]: ...
 @overload
 def register_judge(
     cls: None = None, *, force: bool = ...
@@ -126,7 +132,7 @@ def resolve_judge(pillar: str) -> type[BaseJudge]:
     except KeyError as exc:
         available = ", ".join(sorted(_REGISTRY)) or "(none)"
         raise JudgeExecutionError(
-            f"No judge registered for pillar {pillar!r}. Registered pillars: " f"{available}."
+            f"No judge registered for pillar {pillar!r}. Registered pillars: {available}."
         ) from exc
 
 
@@ -140,12 +146,19 @@ def build_judge(
     *,
     bundle: JudgeBundle,
     llm: LLMClient,
+    kb: CompletenessKB | None = None,
 ) -> BaseJudge:
     """Resolve ``pillar`` and instantiate the judge with ``bundle`` + ``llm``.
 
     This is the one-call form orchestration will use once per run per
     pillar. The registry never holds on to instances - callers own the
     lifetimes.
+
+    The optional ``kb`` is forwarded to judge classes whose
+    ``__init__`` declares a ``kb`` parameter (currently only the
+    completeness pillar). Other pillars ignore it, so orchestration
+    can thread one KB object through to every ``build_judge`` call
+    without conditional logic.
     """
     if bundle.config.pillar != pillar:
         raise JudgeExecutionError(
@@ -153,4 +166,16 @@ def build_judge(
             f"build_judge was asked for {pillar!r}."
         )
     cls = resolve_judge(pillar)
-    return cls(config=bundle.config, rubric=bundle.rubric, llm=llm)
+    kwargs: dict[str, Any] = {
+        "config": bundle.config,
+        "rubric": bundle.rubric,
+        "llm": llm,
+    }
+    # Only forward `kb` to classes that accept it. Using inspect keeps
+    # the registry decoupled from the concrete CompletenessJudge class
+    # (avoiding a circular import at module import time).
+    if kb is not None:
+        init_params = inspect.signature(cls.__init__).parameters
+        if "kb" in init_params:
+            kwargs["kb"] = kb
+    return cls(**kwargs)

@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from src.completeness.task_profile import TaskProfile
 from src.core.types import NormalizedRow, RunContext, Turn
 from src.rubrics.models import Rubric, ScoreAnchor
 
@@ -32,6 +33,7 @@ __all__ = [
     "build_default_prompt",
     "render_row_block",
     "render_rubric_block",
+    "render_task_profile_block",
 ]
 
 
@@ -206,7 +208,7 @@ def _render_optional(name: str, row: NormalizedRow) -> str | None:
             return None
         header = f"Retrieved context ({len(chunks)} chunk{'s' if len(chunks) != 1 else ''}):"
         rendered = "\n".join(
-            f"  [{i}] {_indent_block(chunk, indent='      ').lstrip()}"
+            f"  [{i}] {_indent_block(_stringify_chunk(chunk), indent='      ').lstrip()}"
             for i, chunk in enumerate(chunks, start=1)
         )
         return f"{header}\n{rendered}"
@@ -253,3 +255,82 @@ def _render_optional(name: str, row: NormalizedRow) -> str | None:
 def _render_turn(turn: Turn) -> str:
     content = _indent_block(turn.content, indent="      ").lstrip()
     return f"  [{turn.role}] {content}"
+
+
+def render_task_profile_block(profile: TaskProfile) -> str:
+    """Render a :class:`TaskProfile` as a compact, prompt-friendly block.
+
+    The block intentionally lists elements as bullets so the LLM can
+    mirror them verbatim in ``elements_present`` / ``elements_missing``.
+    The matcher's example_agent_response is NOT included here, to avoid
+    anchoring the judge to a specific phrasing of a good answer.
+    """
+    lines: list[str] = []
+    lines.append("Task-specific completeness profile (KB-informed):")
+    lines.append(f"  Source KB entry: {profile.source_kb_id}")
+    lines.append(f"  Match confidence: {profile.match_confidence:.2f} ({profile.match_reason})")
+    if profile.priority_level:
+        lines.append(f"  Priority level: {profile.priority_level}")
+    if profile.domain:
+        lines.append(f"  Domain: {profile.domain}")
+
+    lines.append("")
+    lines.append(
+        "SME completeness notes (treat as the authoritative definition of "
+        "a complete answer for this row):"
+    )
+    lines.append(_indent_block(profile.completeness_notes))
+
+    lines.append("")
+    lines.append(
+        "Required elements (every item MUST appear in the agent's answer "
+        "for a 5. Classify each into `elements_present` or "
+        "`elements_missing`; together they must cover this list):"
+    )
+    if profile.required_elements:
+        for item in profile.required_elements:
+            lines.append(f"  - {item}")
+    else:
+        lines.append("  (none declared)")
+
+    if profile.optional_elements:
+        lines.append("")
+        lines.append(
+            "Optional elements (nice-to-have; do NOT penalise their "
+            "absence, but cite them in `why_not_higher` if relevant):"
+        )
+        for item in profile.optional_elements:
+            lines.append(f"  - {item}")
+
+    if profile.forbidden_elements:
+        lines.append("")
+        lines.append(
+            "Forbidden elements (presence of any of these caps the score "
+            "at 2 and must appear in `failure_tags`):"
+        )
+        for item in profile.forbidden_elements:
+            lines.append(f"  - {item}")
+
+    if profile.policy_refs:
+        lines.append("")
+        lines.append("Policy references (context only; do not invent content):")
+        for ref in profile.policy_refs:
+            lines.append(f"  - {ref}")
+
+    return "\n".join(lines)
+
+
+def _stringify_chunk(chunk: str | dict[str, object]) -> str:
+    """Render a retrieved_context entry.
+
+    Strings are passed through verbatim. Dict chunks (structured RAG
+    payloads) are pretty-printed as JSON so the judge can see keys
+    like ``doc_id``, ``score``, ``text`` without any parsing contract
+    being baked into the judge code.
+    """
+    if isinstance(chunk, str):
+        return chunk
+    try:
+        return json.dumps(chunk, indent=2, sort_keys=True, default=str)
+    except TypeError:
+        return str(chunk)

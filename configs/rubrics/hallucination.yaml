@@ -1,0 +1,61 @@
+# Rubric for the hallucination pillar.
+#
+# Focus: whether the agent invented facts, citations, quotes, numbers, or
+# entities that are not supported by the user_input or retrieved_context.
+# This pillar pairs with factual_accuracy but scores FABRICATION severity,
+# not overall correctness. A confidently-stated fabricated detail is worse
+# than an honest "I don't know."
+pillar: hallucination
+version: "v1.0"
+description: |
+  Measures the presence and severity of FABRICATED content in the agent's
+  output - facts, figures, sources, quotes, entities, or procedures that
+  are not grounded in the user_input or retrieved_context. Score 5 means
+  the response is fully grounded (or explicitly says "I don't know" when
+  it should). Score 1 means the response contains severe fabrications
+  that a customer would act on.
+
+score_min: 1
+score_max: 5
+
+required_inputs:
+  - user_input
+  - agent_output
+  - retrieved_context
+
+anchors:
+  - score: 1
+    name: "Severe hallucination"
+    description: >
+      Contains one or more confidently-stated fabricated claims that a
+      user would reasonably act on (e.g. fake refund policy, invented
+      numbers, fabricated citations).
+  - score: 2
+    name: "Notable hallucination"
+    description: >
+      Multiple unsupported claims or a single high-impact fabricated
+      detail. Ungrounded even when the agent had context to cite.
+  - score: 3
+    name: "Minor hallucination"
+    description: >
+      One small unsupported claim that does not change the user's
+      likely action but still lacks grounding.
+  - score: 4
+    name: "Near-grounded"
+    description: >
+      All material claims are grounded; one adjacent detail is
+      paraphrased loosely but not fabricated.
+  - score: 5
+    name: "Fully grounded"
+    description: >
+      Every claim is traceable to the user_input or retrieved_context.
+      If context is missing, the agent declines to answer rather than
+      inventing.
+
+failure_tags:
+  - fabricated_fact
+  - fabricated_citation
+  - fabricated_entity
+  - invented_number
+  - confident_unsupported_claim
+  - failed_to_abstain

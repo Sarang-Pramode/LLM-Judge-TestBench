@@ -1,0 +1,59 @@
+# Rubric for the completeness pillar.
+#
+# Focus: whether the agent's answer covers the elements a SME would
+# expect for this kind of question. The Stage-6 completeness knowledge
+# bank will inject task-specific required_elements; until then this
+# rubric describes the GENERIC fallback mode. The completeness judge
+# itself reports which mode was used via JudgeOutcome.extras.
+pillar: completeness
+version: "v1.0"
+description: |
+  Measures whether the agent's response includes all the critical
+  elements a user would reasonably expect, given the question. In
+  KB-informed mode (Stage 6+), required_elements come from the SME
+  completeness knowledge bank. In generic fallback mode, the judge
+  evaluates against general completeness criteria (direct answer,
+  actionable steps, scope caveats, follow-up path).
+
+score_min: 1
+score_max: 5
+
+required_inputs:
+  - user_input
+  - agent_output
+
+anchors:
+  - score: 1
+    name: "Severely incomplete"
+    description: >
+      Answer is missing most or all of the elements a user would need
+      to act on the question. Effectively a non-answer.
+  - score: 2
+    name: "Largely incomplete"
+    description: >
+      Answer addresses the topic but leaves out multiple critical
+      elements (e.g. the actual procedure, or eligibility, or the
+      escalation path).
+  - score: 3
+    name: "Partially complete"
+    description: >
+      Answer covers about half of the expected elements. A user could
+      act on part of it but would need a follow-up for the rest.
+  - score: 4
+    name: "Mostly complete"
+    description: >
+      Answer covers all key elements; at most one recommended but
+      non-critical element is missing.
+  - score: 5
+    name: "Fully complete"
+    description: >
+      Answer covers every critical element a SME would expect, stated
+      clearly and in a usable order. Nothing material is missing.
+
+failure_tags:
+  - missing_direct_answer
+  - missing_required_step
+  - missing_eligibility_criteria
+  - missing_timeline_expectation
+  - missing_escalation_path
+  - missing_required_disclaimer
