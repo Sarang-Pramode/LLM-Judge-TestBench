@@ -226,7 +226,7 @@ RICH_ROWS: list[dict[str, Any]] = [
         "id": "RS-0008",
         "prompt": "What's the status of my dispute?",
         "response": (
-            "You'll need to check in the app under Disputes. I can't look " "that up for you here."
+            "You'll need to check in the app under Disputes. I can't look that up for you here."
         ),
         "topic": "disputes",
         "retrieved_chunks": json.dumps(
@@ -250,8 +250,7 @@ RICH_ROWS: list[dict[str, Any]] = [
         "id": "RS-0009",
         "prompt": "Ugh your app is useless.",
         "response": (
-            "I'm sorry for the frustration. Could you share what went "
-            "wrong? I want to help fix it."
+            "I'm sorry for the frustration. Could you share what went wrong? I want to help fix it."
         ),
         "topic": "support_quality",
         "retrieved_chunks": None,
@@ -320,7 +319,7 @@ RICH_ROWS: list[dict[str, Any]] = [
         "id": "RS-0012",
         "prompt": "Tell me a joke.",
         "response": (
-            "Why did the scarecrow win an award? Because he was " "outstanding in his field."
+            "Why did the scarecrow win an award? Because he was outstanding in his field."
         ),
         "topic": "off_topic",
         "retrieved_chunks": None,
@@ -336,6 +335,227 @@ RICH_ROWS: list[dict[str, Any]] = [
         "sme_reviewer": None,
         "intent": "small_talk",
         "model": "jtb-chat-v1",
+    },
+]
+
+
+# ---------------------------------------------------------------------------
+# "Full schema" sample: every documented normalized column populated with
+# realistic values. Column NAMES here match the normalized schema so the
+# mapping step becomes trivial (identity). Demonstrates all three accepted
+# shapes for ``retrieved_context``:
+#   1. Plain list[str] (classic chunked RAG payload).
+#   2. List of dicts with per-chunk metadata (doc_id, score, etc.).
+#   3. Single-dict payload (one structured document).
+#   4. Single free-text blob (whole doc as a string).
+# ---------------------------------------------------------------------------
+
+FULL_SCHEMA_ROWS: list[dict[str, Any]] = [
+    {
+        "record_id": "FS-0001",
+        "user_input": "How do I dispute a transaction on my card?",
+        "agent_output": (
+            "You can open a dispute inside the app under Card > Recent Transactions > "
+            "Dispute. Most disputes resolve within 10 business days. Have your "
+            "transaction ID ready."
+        ),
+        "category": "disputes",
+        # Shape 1: list[str]
+        "retrieved_context": json.dumps(
+            [
+                "Disputes can be opened from the app for any posted transaction.",
+                "Typical resolution time is 7-10 business days.",
+                "Keep your transaction ID and any supporting documentation.",
+            ]
+        ),
+        "chat_history": json.dumps(
+            [
+                {"role": "user", "content": "I see a charge I don't recognize."},
+                {"role": "assistant", "content": "I can help with that."},
+                {"role": "user", "content": "It's a $42 charge from Coffee Co."},
+            ]
+        ),
+        "metadata": json.dumps({"device": "ios", "app_version": "3.2.1", "locale": "en_US"}),
+        "reviewer_name": "alex.morgan",
+        "reviewer_id": "rev-001",
+        "intent": "transaction_dispute",
+        "topic": "disputes",
+        "model_name": "jtb-chat-v1",
+        "conversation_id": "conv-20260101-0001",
+        "turn_index": 3,
+        "ground_truth_answer": (
+            "Open a dispute from Card > Recent Transactions > Dispute; keep "
+            "your transaction ID handy."
+        ),
+        "policy_reference": "policy_disputes_v3",
+        "label_factual_accuracy": 5,
+        "label_hallucination": 5,
+        "label_relevance": 5,
+        "label_completeness": 4,
+        "label_toxicity": 5,
+        "label_bias_discrimination": 5,
+        "rationale_factual_accuracy": "All claims match policy.",
+        "rationale_hallucination": "No fabricated claims.",
+        "rationale_relevance": "Directly answers the question.",
+        "rationale_completeness": "Missing escalation path.",
+        "rationale_toxicity": "Neutral, helpful tone.",
+        "rationale_bias_discrimination": "No demographic assumptions.",
+    },
+    {
+        "record_id": "FS-0002",
+        "user_input": "What is the APR on my credit card?",
+        "agent_output": (
+            "Your card's APR is 24.99%. Note: I am not sure whether this rate is "
+            "promotional or standard; please confirm in your cardholder agreement."
+        ),
+        "category": "cards",
+        # Shape 2: list of dicts with per-chunk metadata
+        "retrieved_context": json.dumps(
+            [
+                {
+                    "text": "Purchase APR for this card: 19.99%-27.49% variable.",
+                    "doc_id": "policy_cardholder_v4",
+                    "chunk_id": "c-17",
+                    "score": 0.91,
+                },
+                {
+                    "text": "Cash advance APR: 29.99%.",
+                    "doc_id": "policy_cardholder_v4",
+                    "chunk_id": "c-18",
+                    "score": 0.74,
+                },
+            ]
+        ),
+        "chat_history": json.dumps(
+            [
+                {"role": "user", "content": "What rate am I being charged?"},
+            ]
+        ),
+        "metadata": json.dumps({"device": "android", "session_id": "s-42"}),
+        "reviewer_name": "priya.patel",
+        "reviewer_id": "rev-002",
+        "intent": "apr_lookup",
+        "topic": "cards",
+        "model_name": "jtb-chat-v1",
+        "conversation_id": "conv-20260101-0002",
+        "turn_index": 1,
+        "ground_truth_answer": (
+            "Purchase APR is a variable range (19.99%-27.49%); point the user "
+            "at their cardholder agreement for the exact personalised rate."
+        ),
+        "policy_reference": "policy_cardholder_v4",
+        "label_factual_accuracy": 2,
+        "label_hallucination": 2,
+        "label_relevance": 4,
+        "label_completeness": 3,
+        "label_toxicity": 5,
+        "label_bias_discrimination": 5,
+        "rationale_factual_accuracy": "24.99% is not supported by the context.",
+        "rationale_hallucination": "Fabricated specific rate.",
+        "rationale_relevance": "On-topic but imprecise.",
+        "rationale_completeness": "Missed referring to the variable range.",
+        "rationale_toxicity": "Neutral.",
+        "rationale_bias_discrimination": "No issue.",
+    },
+    {
+        "record_id": "FS-0003",
+        "user_input": "Summarise my rights if I'm a victim of fraud.",
+        "agent_output": (
+            "You are entitled to zero-liability protection for unauthorized "
+            "transactions once you report them promptly. Contact support "
+            "immediately and follow the in-app lock flow."
+        ),
+        "category": "fraud",
+        # Shape 3: single dict (one structured document)
+        "retrieved_context": json.dumps(
+            {
+                "doc_id": "fraud_policy_v2",
+                "title": "Fraud protection policy",
+                "text": (
+                    "Customers have zero-liability protection for unauthorized "
+                    "transactions when reported within 60 days. Customers should "
+                    "lock the card in-app and contact support for replacement."
+                ),
+                "last_updated": "2026-01-15",
+            }
+        ),
+        "chat_history": json.dumps(
+            [
+                {"role": "user", "content": "Someone stole my card."},
+                {"role": "assistant", "content": "I'm sorry to hear that."},
+            ]
+        ),
+        "metadata": json.dumps({"priority": "high"}),
+        "reviewer_name": "alex.morgan",
+        "reviewer_id": "rev-001",
+        "intent": "fraud_protection",
+        "topic": "fraud",
+        "model_name": "jtb-chat-v1",
+        "conversation_id": "conv-20260101-0003",
+        "turn_index": 2,
+        "ground_truth_answer": (
+            "Explain zero-liability when promptly reported, lock the card in-app, "
+            "and contact support to get a replacement issued."
+        ),
+        "policy_reference": "fraud_policy_v2",
+        "label_factual_accuracy": 5,
+        "label_hallucination": 5,
+        "label_relevance": 5,
+        "label_completeness": 4,
+        "label_toxicity": 5,
+        "label_bias_discrimination": 5,
+        "rationale_factual_accuracy": "Aligned with fraud policy v2.",
+        "rationale_hallucination": "No fabricated claims.",
+        "rationale_relevance": "On-topic.",
+        "rationale_completeness": "Missed '60 days' reporting window.",
+        "rationale_toxicity": "Empathetic and neutral.",
+        "rationale_bias_discrimination": "No issue.",
+    },
+    {
+        "record_id": "FS-0004",
+        "user_input": "What does our refund policy say?",
+        "agent_output": (
+            "Our refund policy allows full refunds within 30 days of purchase "
+            "for unused services. Fees on physical goods are non-refundable "
+            "after 14 days. See policy_refunds_v2 for full detail."
+        ),
+        "category": "policy",
+        # Shape 4: free-form document text blob (no JSON wrapping).
+        "retrieved_context": (
+            "Refund Policy (policy_refunds_v2, effective 2026-02-01):\n"
+            "Full refunds are available within 30 days of purchase for "
+            "unused services. Physical goods may be returned within 14 days "
+            "of delivery for a full refund; after 14 days, fees are "
+            "non-refundable. Promotional credits are non-refundable in all "
+            "cases. Refunds are issued to the original payment method "
+            "within 5-7 business days."
+        ),
+        "chat_history": None,
+        "metadata": json.dumps({"source_team": "compliance"}),
+        "reviewer_name": "sam.lee",
+        "reviewer_id": "rev-003",
+        "intent": "policy_lookup",
+        "topic": "policy",
+        "model_name": "jtb-chat-v1",
+        "conversation_id": "conv-20260101-0004",
+        "turn_index": 1,
+        "ground_truth_answer": (
+            "Quote the policy: 30-day refund for unused services, 14-day for "
+            "physical goods, promotional credits are non-refundable."
+        ),
+        "policy_reference": "policy_refunds_v2",
+        "label_factual_accuracy": 4,
+        "label_hallucination": 5,
+        "label_relevance": 5,
+        "label_completeness": 4,
+        "label_toxicity": 5,
+        "label_bias_discrimination": 5,
+        "rationale_factual_accuracy": "Correct but slightly paraphrased.",
+        "rationale_hallucination": "No unsupported claims.",
+        "rationale_relevance": "Directly answers.",
+        "rationale_completeness": "Missing the promo credits rule.",
+        "rationale_toxicity": "Neutral.",
+        "rationale_bias_discrimination": "No issue.",
     },
 ]
 
@@ -416,6 +636,15 @@ data.
   exercised end-to-end. Source columns are intentionally different
   from the normalized schema (e.g. `id`, `prompt`, `response`, `topic`)
   so the upload flow demonstrates column mapping.
+- `full_schema_sample.csv` / `.json` - every documented normalized
+  column is present and populated. Source column names match the
+  normalized schema (so mapping is trivial), and the four rows
+  collectively exercise all four accepted shapes for `retrieved_context`:
+    1. Plain `list[str]` (classic chunked RAG).
+    2. `list[dict]` with per-chunk metadata (`doc_id`, `score`, ...).
+    3. A single dict (one structured document).
+    4. A free-form text blob (whole doc as a string).
+  Use this when exercising judge prompts against rich inputs.
 - `minimal_required.csv` - the bare-minimum required columns only
   (`record_id`, `user_input`, `agent_output`, `category`). Useful for
   checking the "mapping is trivially complete" happy path.
@@ -448,6 +677,11 @@ def main() -> None:
         pd.DataFrame(MALFORMED_ROWS),
         SAMPLES_DIR / "malformed_missing_category.csv",
     )
+
+    # Full-schema sample: same payload in CSV + JSON so both loader paths
+    # can be exercised against a realistic "all columns populated" row.
+    _write_csv(pd.DataFrame(FULL_SCHEMA_ROWS), SAMPLES_DIR / "full_schema_sample.csv")
+    _write_json(FULL_SCHEMA_ROWS, SAMPLES_DIR / "full_schema_sample.json")
 
     (SAMPLES_DIR / "README.md").write_text(README_TEXT, encoding="utf-8")
     (MAPPINGS_DIR / "retail_support.yaml").write_text(MAPPING_YAML, encoding="utf-8")

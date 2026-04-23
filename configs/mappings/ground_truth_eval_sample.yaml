@@ -1,0 +1,22 @@
+name: ground_truth_eval_sample_v1
+version: "1"
+description: >
+  Identity mapping for data/samples/ground_truth_eval_sample.csv (all SME
+  labels + reviewer columns). Load with load_mapping() or use as a reference
+  when mapping this file in the Upload UI.
+source_format: csv
+mappings:
+  record_id: record_id
+  user_input: user_input
+  agent_output: agent_output
+  category: category
+  retrieved_context: retrieved_context
+  chat_history: chat_history
+  reviewer_name: reviewer_name
+  reviewer_id: reviewer_id
+  label_factual_accuracy: label_factual_accuracy
+  label_hallucination: label_hallucination
+  label_relevance: label_relevance
+  label_completeness: label_completeness
+  label_toxicity: label_toxicity
+  label_bias_discrimination: label_bias_discrimination
