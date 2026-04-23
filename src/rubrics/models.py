@@ -139,7 +139,7 @@ class Rubric(BaseModel):
         for name in self.required_inputs:
             if name not in ALLOWED_RUBRIC_INPUTS:
                 raise ValueError(
-                    f"Unknown rubric input {name!r}. Allowed: " f"{sorted(ALLOWED_RUBRIC_INPUTS)}."
+                    f"Unknown rubric input {name!r}. Allowed: {sorted(ALLOWED_RUBRIC_INPUTS)}."
                 )
             if name in seen:
                 raise ValueError(f"Duplicate required_input {name!r}.")
